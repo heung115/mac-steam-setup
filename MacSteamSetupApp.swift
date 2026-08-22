@@ -23,15 +23,19 @@ final class InstallerModel: ObservableObject {
     @Published var transferText = ""
     @Published var needsUserAction = false
     @Published var operationInProgress = false
+    @Published var isSteamRunning = false
     @Published var games: [SteamGame] = []
     @Published var shortcutMessage = ""
 
     private var process: Process?
+    private var runtimeProcess: Process?
     private var pendingOutput = ""
+    private var statusTimer: AnyCancellable?
 
     var isBusy: Bool { state == .checking || state == .installing || operationInProgress }
 
     var primaryTitle: String {
+        if state == .ready && isSteamRunning { return "Windows Steam 실행 중" }
         switch state {
         case .ready: return "Windows Steam 열기"
         case .partial: return "설치 이어서 하기"
@@ -41,6 +45,7 @@ final class InstallerModel: ObservableObject {
     }
 
     var statusTitle: String {
+        if state == .ready && isSteamRunning { return "Windows Steam 실행 중" }
         switch state {
         case .checking: return "설치 상태 확인 중"
         case .notInstalled: return "설치 준비 완료"
@@ -51,7 +56,12 @@ final class InstallerModel: ObservableObject {
         }
     }
 
-    init() { refresh() }
+    init() {
+        refresh()
+        statusTimer = Timer.publish(every: 2, on: .main, in: .common)
+            .autoconnect()
+            .sink { [weak self] _ in self?.refreshRuntimeStatus() }
+    }
 
     func primaryAction() {
         if state == .ready {
@@ -79,6 +89,44 @@ final class InstallerModel: ObservableObject {
 
     func stopSteam() {
         run(mode: "stop")
+    }
+
+    private func refreshRuntimeStatus() {
+        guard state == .ready, !operationInProgress, runtimeProcess == nil,
+              let script = Bundle.main.path(forResource: "setup", ofType: "sh") else { return }
+
+        let task = Process()
+        let pipe = Pipe()
+        task.executableURL = URL(fileURLWithPath: "/bin/bash")
+        task.arguments = [script, "runtime-status"]
+        task.standardOutput = pipe
+        task.standardError = FileHandle.nullDevice
+        task.environment = taskEnvironment()
+        task.terminationHandler = { [weak self] _ in
+            let data = pipe.fileHandleForReading.readDataToEndOfFile()
+            let output = String(data: data, encoding: .utf8) ?? ""
+            DispatchQueue.main.async {
+                guard let self else { return }
+                self.runtimeProcess = nil
+                let running: Bool
+                if output.contains("@@RUNTIME|running") {
+                    running = true
+                } else if output.contains("@@RUNTIME|stopped") {
+                    running = false
+                } else {
+                    return
+                }
+                guard running != self.isSteamRunning else { return }
+                self.isSteamRunning = running
+                self.message = running ? "Windows Steam이 실행 중입니다" : "Windows Steam이 종료됐습니다"
+            }
+        }
+        runtimeProcess = task
+        do {
+            try task.run()
+        } catch {
+            runtimeProcess = nil
+        }
     }
 
     func loadGames() {
@@ -119,15 +167,7 @@ final class InstallerModel: ObservableObject {
         task.arguments = [script, mode] + arguments
         task.standardOutput = pipe
         task.standardError = pipe
-        let inherited = ProcessInfo.processInfo.environment
-        task.environment = [
-            "HOME": FileManager.default.homeDirectoryForCurrentUser.path,
-            "USER": NSUserName(),
-            "PATH": "/opt/homebrew/bin:/usr/local/bin:/usr/bin:/bin:/usr/sbin:/sbin",
-            "TMPDIR": inherited["TMPDIR"] ?? "/tmp",
-            "LANG": "en_US.UTF-8",
-            "LC_ALL": "en_US.UTF-8"
-        ]
+        task.environment = taskEnvironment()
 
         pipe.fileHandleForReading.readabilityHandler = { [weak self] handle in
             let data = handle.availableData
@@ -161,6 +201,18 @@ final class InstallerModel: ObservableObject {
             state = .failed
             message = error.localizedDescription
         }
+    }
+
+    private func taskEnvironment() -> [String: String] {
+        let inherited = ProcessInfo.processInfo.environment
+        return [
+            "HOME": FileManager.default.homeDirectoryForCurrentUser.path,
+            "USER": NSUserName(),
+            "PATH": "/opt/homebrew/bin:/usr/local/bin:/usr/bin:/bin:/usr/sbin:/sbin",
+            "TMPDIR": inherited["TMPDIR"] ?? "/tmp",
+            "LANG": "en_US.UTF-8",
+            "LC_ALL": "en_US.UTF-8"
+        ]
     }
 
     private func consumeChunk(_ text: String) {
@@ -204,11 +256,13 @@ final class InstallerModel: ObservableObject {
             shortcutMessage = "Mac용 게임 바로가기를 만들었습니다"
         } else if value == "@@STATE|ready" {
             state = .ready
+            isSteamRunning = false
             progress = 100
             needsUserAction = false
             message = "Windows Steam이 준비됐습니다"
         } else if value == "@@STATE|running" {
             state = .ready
+            isSteamRunning = true
             progress = 100
             message = "Windows Steam이 이미 실행 중입니다"
         } else if value == "@@STATE|partial" {
@@ -319,7 +373,7 @@ struct ContentView: View {
             }
             .buttonStyle(.borderedProminent)
             .controlSize(.large)
-            .disabled(model.isBusy)
+            .disabled(model.isBusy || (model.state == .ready && model.isSteamRunning))
 
             HStack(spacing: 12) {
                 if model.state == .ready {
@@ -333,7 +387,7 @@ struct ContentView: View {
                     Button("Windows Steam 완전 종료") {
                         showStopConfirmation = true
                     }
-                    .disabled(model.isBusy)
+                    .disabled(model.isBusy || !model.isSteamRunning)
                 }
                 Spacer(minLength: 0)
             }

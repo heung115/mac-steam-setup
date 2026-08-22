@@ -47,9 +47,23 @@ PLIST
 output="$(bash "$SCRIPT" check)"
 assert_contains "$output" '@@STATE|ready'
 
+output="$(bash "$SCRIPT" runtime-status)"
+assert_contains "$output" '@@RUNTIME|stopped'
+
+/bin/bash -c 'exec -a "$1" /bin/sleep 30' _ "$wrapper/Contents/MacOS/Sikarugir" &
+fake_wrapper_pid=$!
+/bin/bash -c 'exec -a "$1" /bin/sleep 30' _ 'C:\Program Files (x86)\Steam\Steam.exe' &
+fake_steam_pid=$!
+/bin/sleep 0.1
+output="$(bash "$SCRIPT" runtime-status)"
+assert_contains "$output" '@@RUNTIME|running'
+/bin/kill "$fake_wrapper_pid" "$fake_steam_pid"
+wait "$fake_wrapper_pid" 2>/dev/null || true
+wait "$fake_steam_pid" 2>/dev/null || true
+
 output="$(bash "$SCRIPT" launch)"
 assert_contains "$output" '@@PHASE|launching'
-assert_contains "$output" '@@STATE|ready'
+assert_contains "$output" '@@STATE|running'
 
 cache="$wrapper/Contents/drive_c/users/tester/AppData/Local/Steam/htmlcache"
 mkdir -p "$cache"

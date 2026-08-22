@@ -55,6 +55,17 @@ steam_is_running() {
   /bin/ps -axo command= | wrapper_launcher_is_running_in "$WRAPPER/Contents/MacOS/Sikarugir"
 }
 
+steam_client_is_running() {
+  /bin/ps -axo command= | /usr/bin/awk '
+    tolower($0) ~ /^[[:space:]]*[a-z]:\\.*\\steam\.exe([[:space:]]|$)/ { found=1 }
+    END { exit(found ? 0 : 1) }
+  '
+}
+
+steam_runtime_is_running() {
+  steam_is_running && steam_client_is_running
+}
+
 steam_ui_is_running() {
   /bin/ps -axo command= | /usr/bin/awk '
     tolower($0) ~ /steamwebhelper\.exe/ { found=1 }
@@ -117,13 +128,26 @@ is_configured() {
 
 check_state() {
   if [[ -f "$STEAM_EXE" ]] && is_configured; then
-    printf '@@STATE|ready\n'
+    if steam_runtime_is_running; then
+      printf '@@STATE|running\n'
+    else
+      printf '@@STATE|ready\n'
+    fi
   elif [[ -d "$WRAPPER" ]]; then
     printf '@@STATE|partial\n'
   else
     printf '@@STATE|not_installed\n'
   fi
 }
+
+if [[ "${1:-setup}" == "runtime-status" ]]; then
+  if steam_runtime_is_running; then
+    printf '@@RUNTIME|running\n'
+  else
+    printf '@@RUNTIME|stopped\n'
+  fi
+  exit 0
+fi
 
 if [[ "${1:-setup}" == "check" ]]; then
   check_state
@@ -147,7 +171,7 @@ if [[ "${1:-setup}" == "launch" ]]; then
   phase "launching"
   message "Windows Steam을 시작하고 있습니다"
   open_wrapper
-  printf '@@STATE|ready\n'
+  printf '@@STATE|running\n'
   message "Windows Steam 시작을 요청했습니다"
   exit 0
 fi
@@ -368,5 +392,5 @@ is_configured || fail "D3DMetal 설정 확인에 실패했습니다"
 
 phase "ready"
 message "준비가 끝났습니다. Windows Steam을 실행합니다"
-printf '@@STATE|ready\n'
 open_wrapper
+printf '@@STATE|running\n'
