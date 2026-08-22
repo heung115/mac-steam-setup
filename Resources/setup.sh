@@ -7,6 +7,10 @@ set -euo pipefail
 
 export PATH="/opt/homebrew/bin:/usr/local/bin:/usr/bin:/bin:/usr/sbin:/sbin"
 
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+# shellcheck source=setup_core.sh
+source "$SCRIPT_DIR/setup_core.sh"
+
 ENGINE="WS12WineSikarugir10.0_6"
 TEMPLATE="Template-1.0.11"
 WRAPPER="$HOME/Applications/Sikarugir/Steam.app"
@@ -24,10 +28,54 @@ STEAM_EXE="$WRAPPER/Contents/drive_c/Program Files (x86)/Steam/steam.exe"
 PLIST="$WRAPPER/Contents/Info.plist"
 OWNER_MARKER="$WRAPPER/Contents/.macsteamsetup-owner"
 HTML_CACHE="$WRAPPER/Contents/drive_c/users/$USER/AppData/Local/Steam/htmlcache"
+LOCK_DIR="$APP_CACHE/setup.lock"
 
-phase() { printf '@@PHASE|%s\n' "$1"; }
+progress() { printf '@@PROGRESS|%s|%s\n' "$1" "${2:-}"; }
+phase() {
+  printf '@@PHASE|%s\n' "$1"
+  progress "$(phase_percent "$1")" "$1"
+}
 message() { printf '@@MESSAGE|%s\n' "$1"; }
 fail() { printf '@@ERROR|%s\n' "$1" >&2; exit 1; }
+
+open_wrapper() {
+  if [[ "${MACSTEAM_TEST_NO_OPEN:-0}" == "1" ]]; then
+    return 0
+  fi
+  /usr/bin/open "$WRAPPER"
+}
+
+steam_is_running() {
+  /bin/ps -axo command= | /usr/bin/awk -v wrapper="$WRAPPER" '
+    index($0, wrapper "/Contents/SharedSupport/wine") &&
+    tolower($0) ~ /(steam\.exe|steamwebhelper\.exe)/ { found=1 }
+    END { exit(found ? 0 : 1) }
+  '
+}
+
+steam_installer_is_running() {
+  /bin/ps -axo command= | /usr/bin/awk '
+    tolower($0) ~ /^[[:space:]]*[a-z]:\\.*steamsetup\.exe/ { found=1 }
+    END { exit(found ? 0 : 1) }
+  '
+}
+
+acquire_setup_lock() {
+  /bin/mkdir -p "$APP_CACHE"
+  [[ ! -L "$LOCK_DIR" ]] || fail "설치 잠금 위치가 안전하지 않습니다"
+  if ! /bin/mkdir "$LOCK_DIR" 2>/dev/null; then
+    local old_pid=""
+    [[ -f "$LOCK_DIR/pid" ]] && old_pid="$(<"$LOCK_DIR/pid")"
+    if [[ "$old_pid" =~ ^[0-9]+$ ]] && /bin/kill -0 "$old_pid" 2>/dev/null; then
+      fail "이미 설치가 진행 중입니다"
+    fi
+    /bin/rm -f "$LOCK_DIR/pid"
+    /bin/rmdir "$LOCK_DIR" 2>/dev/null || fail "이전 설치 잠금을 정리하지 못했습니다"
+    /bin/mkdir "$LOCK_DIR"
+  fi
+  printf '%s\n' "$$" > "$LOCK_DIR/pid"
+  trap 'status=$?; /bin/rm -f "$LOCK_DIR/pid"; /bin/rmdir "$LOCK_DIR" 2>/dev/null || true; exit "$status"' EXIT
+}
 
 is_configured() {
   [[ -f "$PLIST" ]] || return 1
@@ -50,6 +98,37 @@ if [[ "${1:-setup}" == "check" ]]; then
   exit 0
 fi
 
+if [[ "${1:-setup}" == "launch" ]]; then
+  [[ -f "$OWNER_MARKER" && -x "$WRAPPER/Contents/MacOS/Sikarugir" && -f "$STEAM_EXE" ]] \
+    || fail "설치된 Windows Steam을 찾을 수 없습니다"
+  if steam_is_running; then
+    printf '@@STATE|running\n'
+    message "Windows Steam이 이미 실행 중입니다"
+    exit 0
+  fi
+  phase "launching"
+  message "Windows Steam을 시작하고 있습니다. 업데이트 확인은 약 1분 걸릴 수 있습니다"
+  open_wrapper
+  printf '@@STATE|ready\n'
+  message "Windows Steam 시작을 요청했습니다"
+  exit 0
+fi
+
+if [[ "${1:-setup}" == "stop" ]]; then
+  phase "stopping"
+  message "Windows Steam과 실행 중인 Windows 게임을 종료하고 있습니다"
+  [[ -x "$WRAPPER/Contents/MacOS/Sikarugir" ]] || fail "Windows Steam 실행기를 찾을 수 없습니다"
+  "$WRAPPER/Contents/MacOS/Sikarugir" WSS-wineserverkill >/dev/null 2>&1 || true
+  for _ in {1..20}; do
+    steam_is_running || break
+    /bin/sleep 0.25
+  done
+  steam_is_running && fail "Windows Steam을 완전히 종료하지 못했습니다"
+  printf '@@STATE|ready\n'
+  message "Windows Steam을 완전히 종료했습니다"
+  exit 0
+fi
+
 if [[ "${1:-setup}" == "repair" ]]; then
   phase "repairing"
   message "Steam 로그인 화면용 임시 데이터를 초기화하고 있습니다"
@@ -58,11 +137,14 @@ if [[ "${1:-setup}" == "repair" ]]; then
   [[ ! -L "$HTML_CACHE" ]] || fail "Steam 임시 데이터 위치가 안전하지 않습니다"
   "$WRAPPER/Contents/MacOS/Sikarugir" WSS-wineserverkill >/dev/null 2>&1 || true
   /bin/rm -rf "$HTML_CACHE"
-  /usr/bin/open "$WRAPPER"
+  open_wrapper
+  progress 100 repairing
   printf '@@STATE|ready\n'
   message "로그인 화면을 복구했습니다. Steam이 다시 열렸습니다"
   exit 0
 fi
+
+acquire_setup_lock
 
 phase "checking"
 message "이 Mac이 실행 조건을 만족하는지 확인하고 있습니다"
@@ -88,11 +170,32 @@ fetch() {
   local url="$1"
   local destination="$2"
   local expected_sha="$3"
+  local label="$4"
+  local base_percent="$5"
+  local span_percent="$6"
   [[ ! -L "$destination" ]] || fail "다운로드 위치가 안전하지 않습니다: $(basename "$destination")"
   if [[ ! -s "$destination" ]]; then
-    local partial
+    local partial total_bytes=0 curl_pid current_bytes=0 current_percent
     partial="$(/usr/bin/mktemp "${destination}.part.XXXXXX")"
-    /usr/bin/curl --fail --location --retry 3 --progress-bar --output "$partial" "$url"
+    total_bytes="$(/usr/bin/curl --fail --silent --show-error --location --head "$url" 2>/dev/null \
+      | /usr/bin/awk 'tolower($1) == "content-length:" { value=$2 } END { gsub("\\r", "", value); print value+0 }' || true)"
+    /usr/bin/curl --fail --location --retry 3 --silent --show-error --output "$partial" "$url" &
+    curl_pid=$!
+    while /bin/kill -0 "$curl_pid" 2>/dev/null; do
+      current_bytes="$(/usr/bin/stat -f %z "$partial" 2>/dev/null || printf '0')"
+      if (( total_bytes > 0 )); then
+        current_percent=$(( base_percent + (current_bytes * span_percent / total_bytes) ))
+        (( current_percent > base_percent + span_percent )) && current_percent=$(( base_percent + span_percent ))
+      else
+        current_percent="$base_percent"
+      fi
+      progress "$current_percent" "$label"
+      printf '@@DOWNLOAD|%s|%s|%s\n' "$label" "$current_bytes" "$total_bytes"
+      /bin/sleep 0.25
+    done
+    if ! wait "$curl_pid"; then
+      fail "다운로드에 실패했습니다: $label"
+    fi
     /usr/bin/tar -tf "$partial" >/dev/null 2>&1 || fail "다운로드 파일 검증에 실패했습니다: $(basename "$destination")"
     [[ "$(/usr/bin/shasum -a 256 "$partial" | /usr/bin/awk '{print $1}')" == "$expected_sha" ]] \
       || fail "다운로드 파일의 고정 버전 검증에 실패했습니다: $(basename "$destination")"
@@ -101,10 +204,12 @@ fetch() {
   /usr/bin/tar -tf "$destination" >/dev/null 2>&1 || fail "다운로드 파일 검증에 실패했습니다: $(basename "$destination")"
   [[ "$(/usr/bin/shasum -a 256 "$destination" | /usr/bin/awk '{print $1}')" == "$expected_sha" ]] \
     || fail "캐시 파일이 검증된 고정 버전과 다릅니다: $(basename "$destination")"
+  progress "$((base_percent + span_percent))" "$label"
+  printf '@@DOWNLOAD|%s|%s|%s\n' "$label" "$(/usr/bin/stat -f %z "$destination")" "$(/usr/bin/stat -f %z "$destination")"
 }
 
-fetch "$ENGINE_URL" "$ENGINE_ARCHIVE" "$ENGINE_SHA256"
-fetch "$TEMPLATE_URL" "$TEMPLATE_ARCHIVE" "$TEMPLATE_SHA256"
+fetch "$ENGINE_URL" "$ENGINE_ARCHIVE" "$ENGINE_SHA256" "실행 엔진" 15 20
+fetch "$TEMPLATE_URL" "$TEMPLATE_ARCHIVE" "$TEMPLATE_SHA256" "앱 틀" 35 10
 
 phase "wrapper"
 message "Windows Steam 전용 Mac 앱을 만들고 있습니다"
@@ -122,6 +227,7 @@ if [[ ! -d "$WRAPPER" ]]; then
   /bin/mv "$WRAPPER/Contents/SharedSupport/wswine.bundle" "$WRAPPER/Contents/SharedSupport/wine"
   printf 'MacSteamSetup prototype owner v1\n' > "$OWNER_MARKER"
 fi
+progress 55 wrapper
 
 LAUNCHER="$WRAPPER/Contents/MacOS/Sikarugir"
 [[ -x "$LAUNCHER" ]] || fail "생성된 Sikarugir 실행 파일을 찾을 수 없습니다"
@@ -133,15 +239,48 @@ if [[ ! -d "$WRAPPER/Contents/drive_c/windows" ]]; then
 fi
 [[ -d "$WRAPPER/Contents/drive_c/Program Files (x86)" ]] || fail "Windows 실행 공간 생성에 실패했습니다"
 
+SYSTEM_KOREAN_FONT="/System/Library/Fonts/AppleSDGothicNeo.ttc"
+WINDOWS_FONT_DIR="$WRAPPER/Contents/drive_c/windows/Fonts"
+if [[ -f "$SYSTEM_KOREAN_FONT" && -d "$WINDOWS_FONT_DIR" && ! -e "$WINDOWS_FONT_DIR/AppleSDGothicNeo.ttc" ]]; then
+  /bin/ln -s "$SYSTEM_KOREAN_FONT" "$WINDOWS_FONT_DIR/AppleSDGothicNeo.ttc"
+fi
+progress 70 windows
+
 phase "steam"
 message "Windows Steam 설치 창이 열리면 기본 설정으로 설치해 주세요"
 if [[ ! -f "$STEAM_EXE" ]]; then
   if [[ ! -s "$STEAM_SETUP" ]]; then
-    /usr/bin/curl --fail --location --retry 3 --progress-bar --output "$STEAM_SETUP" "$STEAM_URL"
+    partial_setup="$(/usr/bin/mktemp "${STEAM_SETUP}.part.XXXXXX")"
+    /usr/bin/curl --fail --location --retry 3 --silent --show-error --output "$partial_setup" "$STEAM_URL"
+    /bin/mv "$partial_setup" "$STEAM_SETUP"
   fi
   /usr/bin/file "$STEAM_SETUP" | /usr/bin/grep -q 'PE32 executable' || fail "Steam 설치 파일 검증에 실패했습니다"
   printf '@@ACTION|steam_installer\n'
-  "$LAUNCHER" WSS-installer "$STEAM_SETUP"
+  "$LAUNCHER" WSS-installer "$STEAM_SETUP" &
+  installer_launcher_pid=$!
+  installer_deadline=$((SECONDS + 1800))
+  while /bin/kill -0 "$installer_launcher_pid" 2>/dev/null; do
+    steam_exists=0
+    installer_running=0
+    [[ -f "$STEAM_EXE" ]] && steam_exists=1
+    steam_installer_is_running && installer_running=1
+    if [[ "$(installer_decision "$steam_exists" "$installer_running")" == "finish" ]]; then
+      progress 88 steam
+      message "Steam 설치를 확인했습니다. 첫 실행을 정리하고 최종 설정을 적용합니다"
+      "$LAUNCHER" WSS-wineserverkill >/dev/null 2>&1 || true
+      break
+    fi
+    (( SECONDS < installer_deadline )) || fail "Steam 설치 대기 시간이 초과됐습니다"
+    /bin/sleep 1
+  done
+  for _ in {1..40}; do
+    /bin/kill -0 "$installer_launcher_pid" 2>/dev/null || break
+    /bin/sleep 0.25
+  done
+  if /bin/kill -0 "$installer_launcher_pid" 2>/dev/null; then
+    /bin/kill -TERM "$installer_launcher_pid" 2>/dev/null || true
+  fi
+  wait "$installer_launcher_pid" 2>/dev/null || true
   [[ -f "$STEAM_EXE" ]] || fail "Steam 설치를 완료하지 못했습니다. 설치 경로는 기본값을 사용해 주세요"
 fi
 
@@ -151,15 +290,11 @@ message "D3DMetal과 실행 설정을 자동으로 적용하고 있습니다"
 if [[ ! -f "$PLIST.original" ]]; then
   /usr/bin/ditto "$PLIST" "$PLIST.original"
 fi
-/usr/bin/plutil -replace D3DMETAL -integer 1 "$PLIST"
-/usr/bin/plutil -replace 'Program Name and Path' -string '/Program Files (x86)/Steam/Steam.exe' "$PLIST"
-/usr/bin/plutil -replace 'Program Flags' -string '' "$PLIST"
-/usr/bin/plutil -replace 'Skip Gecko' -integer 1 "$PLIST"
-/usr/bin/plutil -replace 'Skip Mono' -integer 1 "$PLIST"
+configure_wrapper_plist "$PLIST"
 
 is_configured || fail "D3DMetal 설정 확인에 실패했습니다"
 
 phase "ready"
 message "준비가 끝났습니다. Windows Steam을 실행합니다"
 printf '@@STATE|ready\n'
-/usr/bin/open "$WRAPPER"
+open_wrapper

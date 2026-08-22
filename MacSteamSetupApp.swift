@@ -13,8 +13,12 @@ final class InstallerModel: ObservableObject {
     @Published var message = "현재 설치 상태를 확인하고 있습니다"
     @Published var log = ""
     @Published var showLog = false
+    @Published var progress = 0.0
+    @Published var transferText = ""
+    @Published var needsUserAction = false
 
     private var process: Process?
+    private var pendingOutput = ""
 
     var isBusy: Bool { state == .checking || state == .installing }
 
@@ -51,9 +55,7 @@ final class InstallerModel: ObservableObject {
     func refresh() { run(mode: "check") }
 
     func openSteam() {
-        let url = FileManager.default.homeDirectoryForCurrentUser
-            .appendingPathComponent("Applications/Sikarugir/Steam.app")
-        NSWorkspace.shared.open(url)
+        run(mode: "launch")
     }
 
     func openInstallFolder() {
@@ -66,6 +68,10 @@ final class InstallerModel: ObservableObject {
         run(mode: "repair")
     }
 
+    func stopSteam() {
+        run(mode: "stop")
+    }
+
     private func run(mode: String) {
         guard process == nil else { return }
         guard let script = Bundle.main.path(forResource: "setup", ofType: "sh") else {
@@ -75,7 +81,12 @@ final class InstallerModel: ObservableObject {
         }
 
         state = mode == "check" ? .checking : .installing
-        if mode == "setup" { log = "" }
+        if mode == "setup" {
+            log = ""
+            progress = 0
+            transferText = ""
+        }
+        needsUserAction = false
 
         let task = Process()
         let pipe = Pipe()
@@ -89,19 +100,23 @@ final class InstallerModel: ObservableObject {
             "USER": NSUserName(),
             "PATH": "/opt/homebrew/bin:/usr/local/bin:/usr/bin:/bin:/usr/sbin:/sbin",
             "TMPDIR": inherited["TMPDIR"] ?? "/tmp",
-            "LANG": "ko_KR.UTF-8",
-            "LC_ALL": "ko_KR.UTF-8"
+            "LANG": "en_US.UTF-8",
+            "LC_ALL": "en_US.UTF-8"
         ]
 
         pipe.fileHandleForReading.readabilityHandler = { [weak self] handle in
             let data = handle.availableData
             guard !data.isEmpty, let text = String(data: data, encoding: .utf8) else { return }
-            DispatchQueue.main.async { self?.consume(text) }
+            DispatchQueue.main.async { self?.consumeChunk(text) }
         }
 
         task.terminationHandler = { [weak self] finished in
             DispatchQueue.main.async {
                 pipe.fileHandleForReading.readabilityHandler = nil
+                if self?.pendingOutput.isEmpty == false {
+                    self?.consumeLine(self?.pendingOutput ?? "")
+                    self?.pendingOutput = ""
+                }
                 self?.process = nil
                 if finished.terminationStatus != 0 {
                     self?.state = .failed
@@ -122,29 +137,65 @@ final class InstallerModel: ObservableObject {
         }
     }
 
-    private func consume(_ text: String) {
+    private func consumeChunk(_ text: String) {
         log += text
-        for line in text.split(separator: "\n") {
-            let value = String(line)
-            if value.hasPrefix("@@PHASE|") {
-                phase = friendlyPhase(String(value.dropFirst(8)))
-            } else if value.hasPrefix("@@MESSAGE|") {
-                message = String(value.dropFirst(10))
-            } else if value.hasPrefix("@@ERROR|") {
-                message = String(value.dropFirst(8))
-            } else if value == "@@STATE|ready" {
-                state = .ready
-                message = "Windows Steam이 준비됐습니다"
-            } else if value == "@@STATE|partial" {
-                state = .partial
-                message = "중단된 지점부터 안전하게 이어서 설치합니다"
-            } else if value == "@@STATE|not_installed" {
-                state = .notInstalled
-                message = "버튼을 누르면 필요한 항목만 자동으로 준비합니다"
-            } else if value == "@@ACTION|steam_installer" {
-                message = "열린 Steam 설치 창에서 기본 경로 그대로 설치해 주세요"
-            }
+        pendingOutput += text
+        while let newline = pendingOutput.firstIndex(of: "\n") {
+            let line = String(pendingOutput[..<newline])
+            pendingOutput.removeSubrange(...newline)
+            consumeLine(line)
         }
+    }
+
+    private func consumeLine(_ value: String) {
+        if value.hasPrefix("@@PHASE|") {
+            let rawPhase = String(value.dropFirst(8))
+            phase = friendlyPhase(rawPhase)
+            if rawPhase != "steam" { needsUserAction = false }
+        } else if value.hasPrefix("@@MESSAGE|") {
+            message = String(value.dropFirst(10))
+        } else if value.hasPrefix("@@ERROR|") {
+            message = String(value.dropFirst(8))
+        } else if value.hasPrefix("@@PROGRESS|") {
+            let parts = value.split(separator: "|", omittingEmptySubsequences: false)
+            if parts.count >= 2, let value = Double(parts[1]) {
+                progress = min(max(value, 0), 100)
+            }
+        } else if value.hasPrefix("@@DOWNLOAD|") {
+            let parts = value.split(separator: "|", omittingEmptySubsequences: false)
+            if parts.count >= 4,
+               let current = Int64(parts[2]),
+               let total = Int64(parts[3]) {
+                transferText = formatTransfer(label: String(parts[1]), current: current, total: total)
+            }
+        } else if value == "@@STATE|ready" {
+            state = .ready
+            progress = 100
+            needsUserAction = false
+            message = "Windows Steam이 준비됐습니다"
+        } else if value == "@@STATE|running" {
+            state = .ready
+            progress = 100
+            message = "Windows Steam이 이미 실행 중입니다"
+        } else if value == "@@STATE|partial" {
+            state = .partial
+            message = "중단된 지점부터 안전하게 이어서 설치합니다"
+        } else if value == "@@STATE|not_installed" {
+            state = .notInstalled
+            progress = 0
+            message = "버튼을 누르면 필요한 항목만 자동으로 준비합니다"
+        } else if value == "@@ACTION|steam_installer" {
+            needsUserAction = true
+            message = "Steam 설치 창에서 설치 완료까지 진행해 주세요. Steam 실행 여부는 상관없습니다"
+        }
+    }
+
+    private func formatTransfer(label: String, current: Int64, total: Int64) -> String {
+        let formatter = ByteCountFormatter()
+        formatter.countStyle = .file
+        let currentText = formatter.string(fromByteCount: current)
+        guard total > 0 else { return "\(label) · \(currentText)" }
+        return "\(label) · \(currentText) / \(formatter.string(fromByteCount: total))"
     }
 
     private func friendlyPhase(_ raw: String) -> String {
@@ -157,6 +208,8 @@ final class InstallerModel: ObservableObject {
             "steam": "Windows Steam 설치 중",
             "configuring": "게임 실행 설정 적용 중",
             "repairing": "Steam 로그인 화면 복구 중",
+            "launching": "Windows Steam 시작 중",
+            "stopping": "Windows Steam 종료 중",
             "ready": "설치 완료"
         ][raw] ?? "설치 중"
     }
@@ -164,6 +217,7 @@ final class InstallerModel: ObservableObject {
 
 struct ContentView: View {
     @StateObject private var model = InstallerModel()
+    @State private var showStopConfirmation = false
 
     var body: some View {
         VStack(alignment: .leading, spacing: 22) {
@@ -191,10 +245,30 @@ struct ContentView: View {
                         .fixedSize(horizontal: false, vertical: true)
                 }
                 Spacer()
-                if model.isBusy { ProgressView().controlSize(.large) }
+                if model.state == .checking { ProgressView().controlSize(.large) }
             }
             .padding(18)
             .background(.quaternary.opacity(0.45), in: RoundedRectangle(cornerRadius: 20))
+
+            if model.state == .installing {
+                VStack(alignment: .leading, spacing: 8) {
+                    HStack {
+                        Text(model.needsUserAction ? "사용자 작업 필요" : "전체 진행률")
+                            .font(.callout.weight(.semibold))
+                            .foregroundStyle(model.needsUserAction ? .orange : .secondary)
+                        Spacer()
+                        Text("\(Int(model.progress))%")
+                            .font(.system(.callout, design: .rounded).monospacedDigit().weight(.semibold))
+                    }
+                    ProgressView(value: model.progress, total: 100)
+                        .tint(model.needsUserAction ? .orange : .blue)
+                    if !model.transferText.isEmpty {
+                        Text(model.transferText)
+                            .font(.caption)
+                            .foregroundStyle(.secondary)
+                    }
+                }
+            }
 
             VStack(alignment: .leading, spacing: 10) {
                 Label("Sikarugir 공식 실행 엔진과 앱 틀만 사용", systemImage: "checkmark.shield")
@@ -216,6 +290,10 @@ struct ContentView: View {
                 if model.state == .ready {
                     Button("로그인 화면 복구", action: model.repairSteamUI)
                         .disabled(model.isBusy)
+                    Button("Windows Steam 완전 종료") {
+                        showStopConfirmation = true
+                    }
+                    .disabled(model.isBusy)
                 }
                 Button("설치 폴더 열기", action: model.openInstallFolder)
                     .disabled(model.state == .notInstalled || model.state == .checking)
@@ -243,6 +321,12 @@ struct ContentView: View {
         }
         .padding(28)
         .frame(width: 620, height: model.showLog ? 650 : 500)
+        .alert("Windows Steam을 완전히 종료할까요?", isPresented: $showStopConfirmation) {
+            Button("취소", role: .cancel) {}
+            Button("완전 종료", role: .destructive, action: model.stopSteam)
+        } message: {
+            Text("실행 중인 Windows 게임과 Steam 다운로드도 함께 종료됩니다.")
+        }
     }
 }
 
