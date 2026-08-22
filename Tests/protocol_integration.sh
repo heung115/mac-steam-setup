@@ -89,14 +89,24 @@ cat > "$steamapps/appmanifest_123.acf" <<'ACF'
   "installdir" "ExampleGame"
 }
 ACF
+library_icon_dir="$wrapper/Contents/drive_c/Program Files (x86)/Steam/appcache/librarycache/123"
+mkdir -p "$library_icon_dir"
+game_icon="$library_icon_dir/0123456789abcdef0123456789abcdef01234567.jpg"
+/usr/bin/sips -s format jpeg \
+  '/System/Library/CoreServices/CoreTypes.bundle/Contents/Resources/GenericApplicationIcon.icns' \
+  --out "$game_icon" >/dev/null
 output="$(bash "$SCRIPT" list-games)"
 assert_contains "$output" '@@GAME|123|Example Game|ExampleGame'
+assert_contains "$output" "$game_icon"
 output="$(bash "$SCRIPT" create-shortcut 123)"
 assert_contains "$output" '@@SHORTCUT|'
 shortcut="$HOME/Applications/Windows Steam Games/Example Game.app"
 [[ -x "$shortcut/Contents/MacOS/GameLauncher" ]] || { echo 'FAIL: game launcher missing' >&2; exit 1; }
 launch_command="$shortcut/Contents/Resources/LaunchGame.bat"
 [[ -f "$launch_command" ]] || { echo 'FAIL: Windows game command missing' >&2; exit 1; }
+[[ -f "$shortcut/Contents/Resources/GameIcon.icns" ]] || { echo 'FAIL: game shortcut icon missing' >&2; exit 1; }
+[[ "$(/usr/bin/plutil -extract CFBundleIconFile raw "$shortcut/Contents/Info.plist")" == "GameIcon" ]] \
+  || { echo 'FAIL: game shortcut icon plist entry' >&2; exit 1; }
 assert_contains "$(<"$launch_command")" '-applaunch 123'
 if /usr/bin/grep -q 'steam://rungameid' "$shortcut/Contents/MacOS/GameLauncher"; then
   echo 'FAIL: game shortcut must not use the macOS Steam URL handler' >&2

@@ -30,6 +30,7 @@ OWNER_MARKER="$WRAPPER/Contents/.macsteamsetup-owner"
 HTML_CACHE="$WRAPPER/Contents/drive_c/users/$USER/AppData/Local/Steam/htmlcache"
 LOCK_DIR="$APP_CACHE/setup.lock"
 STEAMAPPS="$WRAPPER/Contents/drive_c/Program Files (x86)/Steam/steamapps"
+LIBRARY_CACHE="$WRAPPER/Contents/drive_c/Program Files (x86)/Steam/appcache/librarycache"
 GAME_SHORTCUTS_DIR="$HOME/Applications/Windows Steam Games"
 
 progress() { printf '@@PROGRESS|%s|%s\n' "$1" "${2:-}"; }
@@ -80,6 +81,31 @@ stop_wrapper() {
     /bin/sleep 0.25
   done
   return 1
+}
+
+create_game_icns() {
+  local source="$1"
+  local output="$2"
+  local work iconset result=0
+  [[ -f "$source" && ! -L "$source" ]] || return 1
+  work="$(/usr/bin/mktemp -d "${TMPDIR:-/tmp}/macsteam-game-icon.XXXXXX")" || return 1
+  iconset="$work/GameIcon.iconset"
+  /bin/mkdir -p "$iconset"
+  /usr/bin/sips -s format png -z 16 16 "$source" --out "$iconset/icon_16x16.png" >/dev/null || result=1
+  /usr/bin/sips -s format png -z 32 32 "$source" --out "$iconset/icon_16x16@2x.png" >/dev/null || result=1
+  /usr/bin/sips -s format png -z 32 32 "$source" --out "$iconset/icon_32x32.png" >/dev/null || result=1
+  /usr/bin/sips -s format png -z 64 64 "$source" --out "$iconset/icon_32x32@2x.png" >/dev/null || result=1
+  /usr/bin/sips -s format png -z 128 128 "$source" --out "$iconset/icon_128x128.png" >/dev/null || result=1
+  /usr/bin/sips -s format png -z 256 256 "$source" --out "$iconset/icon_128x128@2x.png" >/dev/null || result=1
+  /usr/bin/sips -s format png -z 256 256 "$source" --out "$iconset/icon_256x256.png" >/dev/null || result=1
+  /usr/bin/sips -s format png -z 512 512 "$source" --out "$iconset/icon_256x256@2x.png" >/dev/null || result=1
+  /usr/bin/sips -s format png -z 512 512 "$source" --out "$iconset/icon_512x512.png" >/dev/null || result=1
+  /usr/bin/sips -s format png -z 1024 1024 "$source" --out "$iconset/icon_512x512@2x.png" >/dev/null || result=1
+  if (( result == 0 )); then
+    /usr/bin/iconutil -c icns "$iconset" -o "$output" || result=1
+  fi
+  /bin/rm -rf "$work"
+  return "$result"
 }
 
 steam_installer_is_running() {
@@ -192,7 +218,9 @@ if [[ "${1:-setup}" == "list-games" ]]; then
     while IFS= read -r manifest; do
       game="$(read_appmanifest "$manifest" 2>/dev/null || true)"
       [[ -n "$game" ]] || continue
-      printf '@@GAME|%s\n' "$game"
+      IFS='|' read -r app_id game_name install_dir <<< "$game"
+      icon_path="$(find_game_icon "$LIBRARY_CACHE" "$app_id" 2>/dev/null || true)"
+      printf '@@GAME|%s|%s|%s|%s\n' "$app_id" "$game_name" "$install_dir" "$icon_path"
       found=1
     done < <(/usr/bin/find "$STEAMAPPS" -maxdepth 1 -type f -name 'appmanifest_*.acf' -print | /usr/bin/sort)
   fi
@@ -216,15 +244,24 @@ if [[ "${1:-setup}" == "create-shortcut" ]]; then
   /bin/chmod +x "$shortcut/Contents/MacOS/GameLauncher"
   /usr/bin/sed "s/__STEAM_APP_ID__/$app_id/g" \
     "$SCRIPT_DIR/game_launch.bat.template" > "$shortcut/Contents/Resources/LaunchGame.bat"
+  icon_path="$(find_game_icon "$LIBRARY_CACHE" "$app_id" 2>/dev/null || true)"
+  has_game_icon=0
+  if [[ -n "$icon_path" ]] && create_game_icns "$icon_path" "$shortcut/Contents/Resources/GameIcon.icns"; then
+    has_game_icon=1
+  fi
   plist="$shortcut/Contents/Info.plist"
   /usr/bin/plutil -create xml1 "$plist"
   /usr/bin/plutil -insert CFBundleExecutable -string GameLauncher "$plist"
   /usr/bin/plutil -insert CFBundleIdentifier -string "local.macsteam.game.${app_id}" "$plist"
   /usr/bin/plutil -insert CFBundleName -string "$game_name" "$plist"
   /usr/bin/plutil -insert CFBundlePackageType -string APPL "$plist"
-  /usr/bin/plutil -insert CFBundleShortVersionString -string 1.0 "$plist"
+  /usr/bin/plutil -insert CFBundleShortVersionString -string 1.1 "$plist"
+  /usr/bin/plutil -insert CFBundleVersion -string 2 "$plist"
   /usr/bin/plutil -insert LSUIElement -bool true "$plist"
   /usr/bin/plutil -insert SteamAppID -string "$app_id" "$plist"
+  if (( has_game_icon == 1 )); then
+    /usr/bin/plutil -insert CFBundleIconFile -string GameIcon "$plist"
+  fi
   /usr/bin/codesign --force --deep --sign - "$shortcut" >/dev/null
   printf '@@SHORTCUT|%s\n' "$shortcut"
   message "${game_name} 바로가기를 만들었습니다"

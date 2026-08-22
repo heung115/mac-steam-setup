@@ -71,5 +71,11 @@ cat > "$manifest" <<'ACF'
 ACF
 assert_equal "123|Example Game|ExampleGame" "$(read_appmanifest "$manifest")" "manifest parser"
 
+icon_cache="$tmp_dir/librarycache/123"
+mkdir -p "$icon_cache"
+touch "$icon_cache/0123456789abcdef0123456789abcdef01234567.jpg"
+assert_equal "$icon_cache/0123456789abcdef0123456789abcdef01234567.jpg" \
+  "$(find_game_icon "$tmp_dir/librarycache" 123)" "Steam game icon lookup"
+
 printf 'PASS: setup core regression tests\n'
 bash "$ROOT/Tests/protocol_integration.sh"

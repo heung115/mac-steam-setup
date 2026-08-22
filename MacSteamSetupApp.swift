@@ -6,6 +6,7 @@ struct SteamGame: Identifiable, Equatable {
     let id: String
     let name: String
     let installDirectory: String
+    let iconPath: String?
 }
 
 @MainActor
@@ -247,9 +248,15 @@ final class InstallerModel: ObservableObject {
                 transferText = formatTransfer(label: String(parts[1]), current: current, total: total)
             }
         } else if value.hasPrefix("@@GAME|") {
-            let parts = value.split(separator: "|", maxSplits: 3, omittingEmptySubsequences: false)
-            if parts.count == 4 {
-                let game = SteamGame(id: String(parts[1]), name: String(parts[2]), installDirectory: String(parts[3]))
+            let parts = value.split(separator: "|", maxSplits: 4, omittingEmptySubsequences: false)
+            if parts.count >= 4 {
+                let rawIconPath = parts.count == 5 ? String(parts[4]) : ""
+                let game = SteamGame(
+                    id: String(parts[1]),
+                    name: String(parts[2]),
+                    installDirectory: String(parts[3]),
+                    iconPath: rawIconPath.isEmpty ? nil : rawIconPath
+                )
                 if !games.contains(game) { games.append(game) }
             }
         } else if value.hasPrefix("@@SHORTCUT|") {
@@ -414,11 +421,7 @@ struct GameLibraryView: View {
             } else {
                 List(model.games) { game in
                     HStack(spacing: 14) {
-                        Image(systemName: "gamecontroller.fill")
-                            .font(.title2)
-                            .foregroundStyle(.blue)
-                            .frame(width: 36, height: 36)
-                            .background(.blue.opacity(0.1), in: RoundedRectangle(cornerRadius: 9))
+                        GameIconView(game: game)
                         VStack(alignment: .leading, spacing: 3) {
                             Text(game.name).fontWeight(.semibold)
                             Text("Steam App ID \(game.id)")
@@ -447,6 +450,28 @@ struct GameLibraryView: View {
         .onAppear {
             if model.state == .ready { model.loadGames() }
         }
+    }
+}
+
+struct GameIconView: View {
+    let game: SteamGame
+
+    var body: some View {
+        Group {
+            if let path = game.iconPath, let image = NSImage(contentsOfFile: path) {
+                Image(nsImage: image)
+                    .resizable()
+                    .interpolation(.high)
+                    .scaledToFit()
+            } else {
+                Image(systemName: "gamecontroller.fill")
+                    .font(.title2)
+                    .foregroundStyle(.blue)
+            }
+        }
+        .frame(width: 40, height: 40)
+        .background(.quaternary.opacity(0.45), in: RoundedRectangle(cornerRadius: 9))
+        .clipShape(RoundedRectangle(cornerRadius: 9))
     }
 }
 

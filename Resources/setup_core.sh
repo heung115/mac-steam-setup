@@ -72,3 +72,18 @@ read_appmanifest() {
   [[ -n "$app_id" && -n "$name" ]] || return 1
   printf '%s|%s|%s\n' "$app_id" "$name" "$install_dir"
 }
+
+find_game_icon() {
+  local cache_root="$1"
+  local app_id="$2"
+  local candidate filename
+  [[ "$app_id" =~ ^[0-9]+$ && -d "$cache_root/$app_id" ]] || return 1
+  while IFS= read -r candidate; do
+    filename="${candidate##*/}"
+    if [[ "$filename" =~ ^[[:xdigit:]]{40}\.jpg$ ]]; then
+      printf '%s\n' "$candidate"
+      return 0
+    fi
+  done < <(/usr/bin/find "$cache_root/$app_id" -maxdepth 1 -type f -name '*.jpg' -print | /usr/bin/sort)
+  return 1
+}
