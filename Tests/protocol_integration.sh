@@ -30,6 +30,9 @@ assert_contains "$output" '@@STATE|partial'
 touch "$wrapper/Contents/.macsteamsetup-owner"
 cat > "$wrapper/Contents/MacOS/Sikarugir" <<'SH'
 #!/bin/bash
+if [[ "${1:-}" == "WSS-installer" ]]; then
+  printf '%s\n' "${2:-}" > "$HOME/wss-installer-argument"
+fi
 exit 0
 SH
 chmod +x "$wrapper/Contents/MacOS/Sikarugir"
@@ -92,8 +95,26 @@ output="$(bash "$SCRIPT" create-shortcut 123)"
 assert_contains "$output" '@@SHORTCUT|'
 shortcut="$HOME/Applications/Windows Steam Games/Example Game.app"
 [[ -x "$shortcut/Contents/MacOS/GameLauncher" ]] || { echo 'FAIL: game launcher missing' >&2; exit 1; }
+launch_command="$shortcut/Contents/Resources/LaunchGame.bat"
+[[ -f "$launch_command" ]] || { echo 'FAIL: Windows game command missing' >&2; exit 1; }
+assert_contains "$(<"$launch_command")" '-applaunch 123'
+if /usr/bin/grep -q 'steam://rungameid' "$shortcut/Contents/MacOS/GameLauncher"; then
+  echo 'FAIL: game shortcut must not use the macOS Steam URL handler' >&2
+  exit 1
+fi
 [[ "$(/usr/bin/plutil -extract SteamAppID raw "$shortcut/Contents/Info.plist")" == "123" ]] \
   || { echo 'FAIL: game shortcut App ID' >&2; exit 1; }
 /usr/bin/codesign --verify --deep --strict "$shortcut"
+
+/bin/bash -c 'exec -a "$1" /bin/sleep 30' _ "$wrapper/Contents/MacOS/Sikarugir" &
+fake_wrapper_pid=$!
+/bin/bash -c 'exec -a "$1" /bin/sleep 30' _ 'C:\Program Files (x86)\Steam\Steam.exe' &
+fake_steam_pid=$!
+/bin/sleep 0.1
+"$shortcut/Contents/MacOS/GameLauncher"
+assert_contains "$(<"$HOME/wss-installer-argument")" '/Contents/Resources/LaunchGame.bat'
+/bin/kill "$fake_wrapper_pid" "$fake_steam_pid"
+wait "$fake_wrapper_pid" 2>/dev/null || true
+wait "$fake_steam_pid" 2>/dev/null || true
 
 printf 'PASS: setup protocol integration tests\n'

@@ -211,9 +211,11 @@ if [[ "${1:-setup}" == "create-shortcut" ]]; then
   safe_name="$(printf '%s' "$game_name" | /usr/bin/tr '/:' '--')"
   shortcut="$GAME_SHORTCUTS_DIR/${safe_name}.app"
   [[ ! -L "$shortcut" ]] || fail "게임 바로가기 위치가 안전하지 않습니다"
-  /bin/mkdir -p "$shortcut/Contents/MacOS"
+  /bin/mkdir -p "$shortcut/Contents/MacOS" "$shortcut/Contents/Resources"
   /usr/bin/ditto "$SCRIPT_DIR/game_launcher.sh" "$shortcut/Contents/MacOS/GameLauncher"
   /bin/chmod +x "$shortcut/Contents/MacOS/GameLauncher"
+  /usr/bin/sed "s/__STEAM_APP_ID__/$app_id/g" \
+    "$SCRIPT_DIR/game_launch.bat.template" > "$shortcut/Contents/Resources/LaunchGame.bat"
   plist="$shortcut/Contents/Info.plist"
   /usr/bin/plutil -create xml1 "$plist"
   /usr/bin/plutil -insert CFBundleExecutable -string GameLauncher "$plist"
