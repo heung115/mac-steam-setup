@@ -78,7 +78,9 @@ final class InstallerModel: ObservableObject {
     func refresh() { run(mode: "check") }
 
     func openSteam() {
-        run(mode: "launch")
+        // Bringing an already-running client forward is an instant operation and
+        // should not temporarily replace the library with the installation UI.
+        run(mode: "launch", changesMainState: !isSteamRunning)
     }
 
     func openInstallFolder() {
@@ -418,6 +420,16 @@ struct GameLibraryView: View {
                 Spacer()
                 if model.state == .ready {
                     Button {
+                        model.openSteam()
+                    } label: {
+                        Label(
+                            model.isSteamRunning ? "Steam 창 보기" : "Steam 시작",
+                            systemImage: model.isSteamRunning ? "macwindow" : "play.fill"
+                        )
+                    }
+                    .disabled(model.operationInProgress)
+
+                    Button {
                         model.loadGames()
                     } label: {
                         Label("새로고침", systemImage: "arrow.clockwise")
@@ -574,7 +586,7 @@ struct ManagementView: View {
                             Divider().padding(.leading, 42)
                             ManagementRow(
                                 title: "Windows Steam 완전 종료",
-                                detail: "Steam과 실행 중인 Windows 게임을 모두 종료합니다.",
+                                detail: "Steam과 게임을 모두 종료합니다. 다음 시작은 로그인 연결 때문에 최대 1분 걸릴 수 있습니다.",
                                 icon: "power",
                                 actionTitle: "종료",
                                 isDisabled: model.isBusy || !model.isSteamRunning,
