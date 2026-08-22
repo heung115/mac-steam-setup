@@ -32,6 +32,13 @@ assert_equal "wait" "$(installer_decision 0 0)" "missing Steam executable"
 assert_equal "wait" "$(installer_decision 1 1)" "installer still visible"
 assert_equal "finish" "$(installer_decision 1 0)" "installed Steam with closed installer"
 
+launcher_path="/Users/test/Applications/Sikarugir/Steam.app/Contents/MacOS/Sikarugir"
+printf '%s\n' "$launcher_path" | wrapper_launcher_is_running_in "$launcher_path" \
+  || fail "wrapper launcher should be detected"
+if printf '%s\n' '/another/prefix/Sikarugir' | wrapper_launcher_is_running_in "$launcher_path"; then
+  fail "unrelated wrapper must not be detected"
+fi
+
 tmp_dir="$(mktemp -d "${TMPDIR:-/tmp}/macsteam-tests.XXXXXX")"
 trap 'rm -rf "$tmp_dir"' EXIT
 plist="$tmp_dir/Info.plist"

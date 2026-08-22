@@ -321,7 +321,7 @@ struct ContentView: View {
             .controlSize(.large)
             .disabled(model.isBusy)
 
-            HStack {
+            HStack(spacing: 12) {
                 if model.state == .ready {
                     Button("게임 바로가기") {
                         showGameShortcuts = true
@@ -335,6 +335,10 @@ struct ContentView: View {
                     }
                     .disabled(model.isBusy)
                 }
+                Spacer(minLength: 0)
+            }
+
+            HStack {
                 Button("설치 폴더 열기", action: model.openInstallFolder)
                     .disabled(model.state == .notInstalled || model.state == .checking)
                 Spacer()
@@ -360,7 +364,10 @@ struct ContentView: View {
                 .foregroundStyle(.tertiary)
         }
         .padding(28)
-        .frame(width: 620, height: model.showLog ? 650 : 500)
+        .frame(
+            width: 620,
+            height: model.showLog ? 720 : (model.state == .installing ? 570 : 500)
+        )
         .alert("Windows Steam을 완전히 종료할까요?", isPresented: $showStopConfirmation) {
             Button("취소", role: .cancel) {}
             Button("완전 종료", role: .destructive, action: model.stopSteam)

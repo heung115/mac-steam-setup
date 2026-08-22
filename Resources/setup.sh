@@ -48,11 +48,7 @@ open_wrapper() {
 }
 
 steam_is_running() {
-  /bin/ps -axo command= | /usr/bin/awk -v wrapper="$WRAPPER" '
-    index($0, wrapper "/Contents/SharedSupport/wine") &&
-    tolower($0) ~ /(steam\.exe|steamwebhelper\.exe)/ { found=1 }
-    END { exit(found ? 0 : 1) }
-  '
+  /bin/ps -axo command= | wrapper_launcher_is_running_in "$WRAPPER/Contents/MacOS/Sikarugir"
 }
 
 steam_installer_is_running() {
@@ -60,6 +56,20 @@ steam_installer_is_running() {
     tolower($0) ~ /^[[:space:]]*[a-z]:\\.*steamsetup\.exe/ { found=1 }
     END { exit(found ? 0 : 1) }
   '
+}
+
+configure_steam_english() {
+  local wine="$WRAPPER/Contents/SharedSupport/wine/bin/wine"
+  local prefix="$WRAPPER/Contents/SharedSupport/prefix"
+  [[ -x "$wine" && -d "$prefix" ]] || fail "Steam 언어 설정에 필요한 Wine 환경을 찾을 수 없습니다"
+  (
+    export WINEPREFIX="$prefix"
+    export DYLD_FALLBACK_LIBRARY_PATH="$WRAPPER/Contents/Frameworks/moltenvkcx:$WRAPPER/Contents/SharedSupport/wine/lib:$WRAPPER/Contents/SharedSupport/wine/lib64:$WRAPPER/Contents/Frameworks:$WRAPPER/Contents/Frameworks/GStreamer.framework/Libraries:/opt/wine/lib:/usr/lib:/usr/libexec:/usr/lib/system"
+    "$wine" reg add 'HKCU\Software\Valve\Steam' /v Language /t REG_SZ /d english /f >/dev/null 2>&1
+    "$wine" reg add 'HKLM\Software\Wow6432Node\Valve\Steam' /v Language /t REG_SZ /d english /f >/dev/null 2>&1
+    "$wine" reg add 'HKLM\Software\Wow6432Node\Valve\Steam\NSIS' /v InstallerLanguage /t REG_SZ /d 1033 /f >/dev/null 2>&1
+  ) || fail "Steam 초기 언어를 설정하지 못했습니다"
+  "$WRAPPER/Contents/MacOS/Sikarugir" WSS-wineserverkill >/dev/null 2>&1 || true
 }
 
 acquire_setup_lock() {
@@ -284,11 +294,6 @@ if [[ ! -d "$WRAPPER/Contents/drive_c/windows" ]]; then
 fi
 [[ -d "$WRAPPER/Contents/drive_c/Program Files (x86)" ]] || fail "Windows 실행 공간 생성에 실패했습니다"
 
-SYSTEM_KOREAN_FONT="/System/Library/Fonts/AppleSDGothicNeo.ttc"
-WINDOWS_FONT_DIR="$WRAPPER/Contents/drive_c/windows/Fonts"
-if [[ -f "$SYSTEM_KOREAN_FONT" && -d "$WINDOWS_FONT_DIR" && ! -e "$WINDOWS_FONT_DIR/AppleSDGothicNeo.ttc" ]]; then
-  /bin/ln -s "$SYSTEM_KOREAN_FONT" "$WINDOWS_FONT_DIR/AppleSDGothicNeo.ttc"
-fi
 progress 70 windows
 
 phase "steam"
@@ -336,6 +341,7 @@ if [[ ! -f "$PLIST.original" ]]; then
   /usr/bin/ditto "$PLIST" "$PLIST.original"
 fi
 configure_wrapper_plist "$PLIST"
+configure_steam_english
 
 is_configured || fail "D3DMetal 설정 확인에 실패했습니다"
 

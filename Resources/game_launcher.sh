@@ -14,9 +14,8 @@ PREFIX="$WRAPPER/Contents/SharedSupport/prefix"
 }
 
 steam_is_running() {
-  /bin/ps -axo command= | /usr/bin/awk -v wrapper="$WRAPPER" '
-    index($0, wrapper "/Contents/SharedSupport/wine") &&
-    tolower($0) ~ /(steam\.exe|steamwebhelper\.exe)/ { found=1 }
+  /bin/ps -axo command= | /usr/bin/awk -v launcher="$WRAPPER/Contents/MacOS/Sikarugir" '
+    index($0, launcher) == 1 { found=1 }
     END { exit(found ? 0 : 1) }
   '
 }

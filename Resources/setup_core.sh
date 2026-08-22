@@ -27,6 +27,14 @@ installer_decision() {
   fi
 }
 
+wrapper_launcher_is_running_in() {
+  local launcher="$1"
+  /usr/bin/awk -v launcher="$launcher" '
+    index($0, launcher) == 1 { found=1 }
+    END { exit(found ? 0 : 1) }
+  '
+}
+
 plist_set() {
   local plist="$1"
   local key="$2"
