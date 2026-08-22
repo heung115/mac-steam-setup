@@ -57,6 +57,7 @@ PLIST
 configure_wrapper_plist "$plist"
 assert_equal "1" "$(/usr/bin/plutil -extract D3DMETAL raw "$plist")" "D3DMetal enabled"
 assert_equal "/Program Files (x86)/Steam/Steam.exe" "$(/usr/bin/plutil -extract 'Program Name and Path' raw "$plist")" "Steam target"
+assert_equal "-nobootstrapupdate -skipinitialbootstrap" "$(/usr/bin/plutil -extract 'Program Flags' raw "$plist")" "repeat launch skips blocking bootstrap update"
 assert_equal "true" "$(/usr/bin/plutil -extract LSUIElement raw "$plist")" "launcher hidden from Dock"
 
 manifest="$tmp_dir/appmanifest_123.acf"

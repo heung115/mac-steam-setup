@@ -51,7 +51,7 @@ configure_wrapper_plist() {
   local plist="$1"
   plist_set "$plist" D3DMETAL integer 1
   plist_set "$plist" 'Program Name and Path' string '/Program Files (x86)/Steam/Steam.exe'
-  plist_set "$plist" 'Program Flags' string ''
+  plist_set "$plist" 'Program Flags' string '-nobootstrapupdate -skipinitialbootstrap'
   plist_set "$plist" 'Skip Gecko' integer 1
   plist_set "$plist" 'Skip Mono' integer 1
   plist_set "$plist" LSUIElement bool true

@@ -47,8 +47,28 @@ open_wrapper() {
   /usr/bin/open "$WRAPPER"
 }
 
+open_steam_main() {
+  open_wrapper
+}
+
 steam_is_running() {
   /bin/ps -axo command= | wrapper_launcher_is_running_in "$WRAPPER/Contents/MacOS/Sikarugir"
+}
+
+steam_ui_is_running() {
+  /bin/ps -axo command= | /usr/bin/awk '
+    tolower($0) ~ /steamwebhelper\.exe/ { found=1 }
+    END { exit(found ? 0 : 1) }
+  '
+}
+
+stop_wrapper() {
+  "$WRAPPER/Contents/MacOS/Sikarugir" WSS-wineserverkill >/dev/null 2>&1 || true
+  for _ in {1..20}; do
+    steam_is_running || return 0
+    /bin/sleep 0.25
+  done
+  return 1
 }
 
 steam_installer_is_running() {
@@ -111,15 +131,21 @@ if [[ "${1:-setup}" == "check" ]]; then
 fi
 
 if [[ "${1:-setup}" == "launch" ]]; then
-  [[ -f "$OWNER_MARKER" && -x "$WRAPPER/Contents/MacOS/Sikarugir" && -f "$STEAM_EXE" ]] \
+  [[ -f "$OWNER_MARKER" && -x "$WRAPPER/Contents/MacOS/Sikarugir" && -f "$STEAM_EXE" && -f "$PLIST" ]] \
     || fail "설치된 Windows Steam을 찾을 수 없습니다"
+  configure_wrapper_plist "$PLIST"
   if steam_is_running; then
-    printf '@@STATE|running\n'
-    message "Windows Steam이 이미 실행 중입니다"
-    exit 0
+    if steam_ui_is_running; then
+      open_steam_main || fail "Steam 창을 다시 열지 못했습니다"
+      printf '@@STATE|running\n'
+      message "Windows Steam 창을 앞으로 가져왔습니다"
+      exit 0
+    fi
+    message "멈춘 Steam 시작을 정리하고 다시 여는 중입니다"
+    stop_wrapper || fail "멈춘 Windows Steam을 정리하지 못했습니다"
   fi
   phase "launching"
-  message "Windows Steam을 시작하고 있습니다. 업데이트 확인은 약 1분 걸릴 수 있습니다"
+  message "Windows Steam을 시작하고 있습니다"
   open_wrapper
   printf '@@STATE|ready\n'
   message "Windows Steam 시작을 요청했습니다"
@@ -130,12 +156,7 @@ if [[ "${1:-setup}" == "stop" ]]; then
   phase "stopping"
   message "Windows Steam과 실행 중인 Windows 게임을 종료하고 있습니다"
   [[ -x "$WRAPPER/Contents/MacOS/Sikarugir" ]] || fail "Windows Steam 실행기를 찾을 수 없습니다"
-  "$WRAPPER/Contents/MacOS/Sikarugir" WSS-wineserverkill >/dev/null 2>&1 || true
-  for _ in {1..20}; do
-    steam_is_running || break
-    /bin/sleep 0.25
-  done
-  steam_is_running && fail "Windows Steam을 완전히 종료하지 못했습니다"
+  stop_wrapper || fail "Windows Steam을 완전히 종료하지 못했습니다"
   printf '@@STATE|ready\n'
   message "Windows Steam을 완전히 종료했습니다"
   exit 0
