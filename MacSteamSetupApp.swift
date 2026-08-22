@@ -303,168 +303,122 @@ final class InstallerModel: ObservableObject {
     }
 }
 
+enum AppSection: String, CaseIterable, Identifiable {
+    case games
+    case management
+
+    var id: String { rawValue }
+    var title: String { self == .games ? "게임" : "설치 및 관리" }
+    var icon: String { self == .games ? "gamecontroller.fill" : "gearshape.fill" }
+}
+
 struct ContentView: View {
     @StateObject private var model = InstallerModel()
+    @State private var selection: AppSection? = .games
     @State private var showStopConfirmation = false
-    @State private var showGameShortcuts = false
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 22) {
-            VStack(alignment: .leading, spacing: 7) {
-                Text("Mac에서 Windows Steam")
-                    .font(.system(size: 30, weight: .bold, design: .rounded))
-                Text("영상의 Sikarugir 방식을 복잡한 설정 없이 준비합니다.")
-                    .foregroundStyle(.secondary)
+        NavigationSplitView {
+            List(AppSection.allCases, selection: $selection) { section in
+                Label(section.title, systemImage: section.icon)
+                    .tag(section)
             }
-
-            HStack(spacing: 15) {
-                ZStack {
-                    RoundedRectangle(cornerRadius: 16)
-                        .fill(model.state == .ready ? Color.green.opacity(0.14) : Color.blue.opacity(0.12))
-                    Image(systemName: model.state == .ready ? "checkmark.circle.fill" : "gamecontroller.fill")
-                        .font(.system(size: 32))
-                        .foregroundStyle(model.state == .ready ? .green : .blue)
+            .navigationTitle("Windows Steam")
+            .navigationSplitViewColumnWidth(min: 170, ideal: 190, max: 220)
+        } detail: {
+            switch selection ?? .games {
+            case .games:
+                GameLibraryView(model: model) {
+                    selection = .management
                 }
-                .frame(width: 68, height: 68)
-
-                VStack(alignment: .leading, spacing: 5) {
-                    Text(model.statusTitle).font(.title3.bold())
-                    Text(model.message)
-                        .foregroundStyle(.secondary)
-                        .fixedSize(horizontal: false, vertical: true)
-                }
-                Spacer()
-                if model.state == .checking { ProgressView().controlSize(.large) }
-            }
-            .padding(18)
-            .background(.quaternary.opacity(0.45), in: RoundedRectangle(cornerRadius: 20))
-
-            if model.state == .installing {
-                VStack(alignment: .leading, spacing: 8) {
-                    HStack {
-                        Text(model.needsUserAction ? "사용자 작업 필요" : "전체 진행률")
-                            .font(.callout.weight(.semibold))
-                            .foregroundStyle(model.needsUserAction ? .orange : .secondary)
-                        Spacer()
-                        Text("\(Int(model.progress))%")
-                            .font(.system(.callout, design: .rounded).monospacedDigit().weight(.semibold))
-                    }
-                    ProgressView(value: model.progress, total: 100)
-                        .tint(model.needsUserAction ? .orange : .blue)
-                    if !model.transferText.isEmpty {
-                        Text(model.transferText)
-                            .font(.caption)
-                            .foregroundStyle(.secondary)
-                    }
+            case .management:
+                ManagementView(model: model) {
+                    showStopConfirmation = true
                 }
             }
-
-            VStack(alignment: .leading, spacing: 10) {
-                Label("Sikarugir 공식 실행 엔진과 앱 틀만 사용", systemImage: "checkmark.shield")
-                Label("Steam 로그인과 게임 설치는 평소처럼 Steam에서 진행", systemImage: "person.crop.circle")
-                Label("기존 Steam 앱이나 Porting Kit는 변경하지 않음", systemImage: "externaldrive")
-            }
-            .font(.callout)
-
-            Button(action: model.primaryAction) {
-                Text(model.primaryTitle)
-                    .frame(maxWidth: .infinity)
-                    .padding(.vertical, 7)
-            }
-            .buttonStyle(.borderedProminent)
-            .controlSize(.large)
-            .disabled(model.isBusy || (model.state == .ready && model.isSteamRunning))
-
-            HStack(spacing: 12) {
-                if model.state == .ready {
-                    Button("게임 바로가기") {
-                        showGameShortcuts = true
-                        model.loadGames()
-                    }
-                    .disabled(model.isBusy)
-                    Button("로그인 화면 복구", action: model.repairSteamUI)
-                        .disabled(model.isBusy)
-                    Button("Windows Steam 완전 종료") {
-                        showStopConfirmation = true
-                    }
-                    .disabled(model.isBusy || !model.isSteamRunning)
-                }
-                Spacer(minLength: 0)
-            }
-
-            HStack {
-                Button("설치 폴더 열기", action: model.openInstallFolder)
-                    .disabled(model.state == .notInstalled || model.state == .checking)
-                Spacer()
-                Button(model.showLog ? "설치 기록 숨기기" : "설치 기록 보기") {
-                    model.showLog.toggle()
-                }
-            }
-
-            if model.showLog {
-                ScrollView {
-                    Text(model.log.isEmpty ? "아직 기록이 없습니다." : model.log)
-                        .font(.system(.caption, design: .monospaced))
-                        .textSelection(.enabled)
-                        .frame(maxWidth: .infinity, alignment: .leading)
-                }
-                .frame(height: 150)
-                .padding(10)
-                .background(.black.opacity(0.06), in: RoundedRectangle(cornerRadius: 10))
-            }
-
-            Text("일부 게임과 안티치트는 호환되지 않을 수 있습니다. 이 앱은 게임이나 Windows를 포함하지 않습니다.")
-                .font(.caption)
-                .foregroundStyle(.tertiary)
         }
-        .padding(28)
-        .frame(
-            width: 620,
-            height: model.showLog ? 720 : (model.state == .installing ? 570 : 500)
-        )
+        .frame(width: 860, height: 590)
+        .onChange(of: selection) { _, section in
+            if section == .games, model.state == .ready { model.loadGames() }
+        }
+        .onChange(of: model.state) { _, state in
+            if state == .ready, selection == .games {
+                model.loadGames()
+            } else if state == .notInstalled || state == .partial || state == .failed {
+                selection = .management
+            }
+        }
         .alert("Windows Steam을 완전히 종료할까요?", isPresented: $showStopConfirmation) {
             Button("취소", role: .cancel) {}
             Button("완전 종료", role: .destructive, action: model.stopSteam)
         } message: {
             Text("실행 중인 Windows 게임과 Steam 다운로드도 함께 종료됩니다.")
         }
-        .sheet(isPresented: $showGameShortcuts) {
-            GameShortcutSheet(model: model)
-        }
     }
 }
 
-struct GameShortcutSheet: View {
+struct GameLibraryView: View {
     @ObservedObject var model: InstallerModel
-    @Environment(\.dismiss) private var dismiss
+    let openManagement: () -> Void
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 18) {
-            HStack {
+        VStack(alignment: .leading, spacing: 0) {
+            HStack(alignment: .top) {
                 VStack(alignment: .leading, spacing: 4) {
-                    Text("게임 바로가기")
-                        .font(.title2.bold())
-                    Text("Steam을 전면에 열지 않고 선택한 게임을 바로 시작하는 Mac 앱을 만듭니다.")
+                    Text("내 게임")
+                        .font(.largeTitle.bold())
+                    Text("Windows Steam에 설치된 게임을 바로 실행할 수 있게 준비합니다.")
                         .foregroundStyle(.secondary)
                 }
                 Spacer()
-                Button("닫기", action: dismiss.callAsFunction)
-            }
-
-            if model.operationInProgress && model.games.isEmpty {
-                HStack(spacing: 10) {
-                    ProgressView()
-                    Text("설치된 게임을 찾는 중입니다")
+                if model.state == .ready {
+                    Button {
+                        model.loadGames()
+                    } label: {
+                        Label("새로고침", systemImage: "arrow.clockwise")
+                    }
+                    .disabled(model.operationInProgress)
                 }
+            }
+            .padding(.bottom, 22)
+
+            if model.state == .checking {
+                Spacer()
+                ProgressView("게임을 불러오는 중입니다")
+                    .frame(maxWidth: .infinity)
+                Spacer()
+            } else if model.state != .ready {
+                Spacer()
+                ContentUnavailableView {
+                    Label("Windows Steam 준비가 필요합니다", systemImage: "externaldrive.badge.plus")
+                } description: {
+                    Text("설치 및 관리에서 처음 한 번만 준비해 주세요.")
+                } actions: {
+                    Button("설치 및 관리로 이동", action: openManagement)
+                        .buttonStyle(.borderedProminent)
+                }
+                Spacer()
+            } else if model.operationInProgress && model.games.isEmpty {
+                Spacer()
+                ProgressView("설치된 게임을 찾는 중입니다")
+                    .frame(maxWidth: .infinity)
+                Spacer()
             } else if model.games.isEmpty {
+                Spacer()
                 ContentUnavailableView(
                     "설치된 게임이 없습니다",
                     systemImage: "gamecontroller",
-                    description: Text("Windows Steam에서 게임을 설치한 다음 다시 확인해 주세요.")
+                    description: Text("Windows Steam에서 게임을 설치한 다음 새로고침해 주세요.")
                 )
+                Spacer()
             } else {
                 List(model.games) { game in
-                    HStack {
+                    HStack(spacing: 14) {
+                        Image(systemName: "gamecontroller.fill")
+                            .font(.title2)
+                            .foregroundStyle(.blue)
+                            .frame(width: 36, height: 36)
+                            .background(.blue.opacity(0.1), in: RoundedRectangle(cornerRadius: 9))
                         VStack(alignment: .leading, spacing: 3) {
                             Text(game.name).fontWeight(.semibold)
                             Text("Steam App ID \(game.id)")
@@ -472,23 +426,183 @@ struct GameShortcutSheet: View {
                                 .foregroundStyle(.secondary)
                         }
                         Spacer()
-                        Button("Mac 앱 만들기") {
+                        Button("바로가기 만들기") {
                             model.createShortcut(for: game)
                         }
                         .disabled(model.operationInProgress)
                     }
-                    .padding(.vertical, 4)
+                    .padding(.vertical, 7)
                 }
+                .listStyle(.inset)
             }
 
             if !model.shortcutMessage.isEmpty {
-                Label(model.shortcutMessage, systemImage: "checkmark.circle")
+                Label(model.shortcutMessage, systemImage: "checkmark.circle.fill")
                     .font(.callout)
-                    .foregroundStyle(.secondary)
+                    .foregroundStyle(.green)
+                    .padding(.top, 12)
             }
         }
-        .padding(24)
-        .frame(width: 560, height: 420)
+        .padding(28)
+        .onAppear {
+            if model.state == .ready { model.loadGames() }
+        }
+    }
+}
+
+struct ManagementView: View {
+    @ObservedObject var model: InstallerModel
+    let confirmStop: () -> Void
+
+    var body: some View {
+        ScrollView {
+            VStack(alignment: .leading, spacing: 22) {
+                VStack(alignment: .leading, spacing: 4) {
+                    Text("설치 및 관리")
+                        .font(.largeTitle.bold())
+                    Text("Windows Steam 실행 환경과 문제 해결 도구를 관리합니다.")
+                        .foregroundStyle(.secondary)
+                }
+
+                StatusCard(model: model)
+
+                if model.state == .installing {
+                    VStack(alignment: .leading, spacing: 9) {
+                        HStack {
+                            Text(model.needsUserAction ? "사용자 작업 필요" : "전체 진행률")
+                                .font(.callout.weight(.semibold))
+                                .foregroundStyle(model.needsUserAction ? .orange : .secondary)
+                            Spacer()
+                            Text("\(Int(model.progress))%")
+                                .font(.system(.callout, design: .rounded).monospacedDigit().weight(.semibold))
+                        }
+                        ProgressView(value: model.progress, total: 100)
+                            .tint(model.needsUserAction ? .orange : .blue)
+                        if !model.transferText.isEmpty {
+                            Text(model.transferText)
+                                .font(.caption)
+                                .foregroundStyle(.secondary)
+                        }
+                    }
+                    .padding(16)
+                    .background(.quaternary.opacity(0.35), in: RoundedRectangle(cornerRadius: 14))
+                }
+
+                Button(action: model.primaryAction) {
+                    Text(model.primaryTitle)
+                        .frame(maxWidth: .infinity)
+                        .padding(.vertical, 6)
+                }
+                .buttonStyle(.borderedProminent)
+                .controlSize(.large)
+                .disabled(model.isBusy || (model.state == .ready && model.isSteamRunning))
+
+                if model.state == .ready {
+                    GroupBox("관리 도구") {
+                        VStack(spacing: 0) {
+                            ManagementRow(
+                                title: "로그인 화면 복구",
+                                detail: "로그인 창이 비어 있거나 깨졌을 때 임시 데이터를 초기화합니다.",
+                                icon: "wrench.and.screwdriver",
+                                actionTitle: "복구",
+                                action: model.repairSteamUI
+                            )
+                            Divider().padding(.leading, 42)
+                            ManagementRow(
+                                title: "Windows Steam 완전 종료",
+                                detail: "Steam과 실행 중인 Windows 게임을 모두 종료합니다.",
+                                icon: "power",
+                                actionTitle: "종료",
+                                isDisabled: model.isBusy || !model.isSteamRunning,
+                                action: confirmStop
+                            )
+                        }
+                        .padding(.vertical, 4)
+                    }
+                }
+
+                HStack {
+                    Button("설치 폴더 열기", action: model.openInstallFolder)
+                        .disabled(model.state == .notInstalled || model.state == .checking)
+                    Spacer()
+                    Button(model.showLog ? "설치 기록 숨기기" : "설치 기록 보기") {
+                        model.showLog.toggle()
+                    }
+                }
+
+                if model.showLog {
+                    ScrollView {
+                        Text(model.log.isEmpty ? "아직 기록이 없습니다." : model.log)
+                            .font(.system(.caption, design: .monospaced))
+                            .textSelection(.enabled)
+                            .frame(maxWidth: .infinity, alignment: .leading)
+                    }
+                    .frame(height: 140)
+                    .padding(12)
+                    .background(.black.opacity(0.06), in: RoundedRectangle(cornerRadius: 10))
+                }
+
+                Text("일부 게임과 안티치트는 호환되지 않을 수 있습니다.")
+                    .font(.caption)
+                    .foregroundStyle(.tertiary)
+            }
+            .padding(28)
+        }
+    }
+}
+
+struct StatusCard: View {
+    @ObservedObject var model: InstallerModel
+
+    var body: some View {
+        HStack(spacing: 15) {
+            Image(systemName: model.state == .ready ? "checkmark.circle.fill" : "externaldrive.fill")
+                .font(.system(size: 30))
+                .foregroundStyle(model.state == .ready ? .green : .blue)
+                .frame(width: 58, height: 58)
+                .background(
+                    (model.state == .ready ? Color.green : Color.blue).opacity(0.11),
+                    in: RoundedRectangle(cornerRadius: 14)
+                )
+            VStack(alignment: .leading, spacing: 4) {
+                Text(model.statusTitle).font(.headline)
+                Text(model.message)
+                    .font(.callout)
+                    .foregroundStyle(.secondary)
+                    .fixedSize(horizontal: false, vertical: true)
+            }
+            Spacer()
+            if model.state == .checking { ProgressView() }
+        }
+        .padding(16)
+        .background(.quaternary.opacity(0.4), in: RoundedRectangle(cornerRadius: 16))
+    }
+}
+
+struct ManagementRow: View {
+    let title: String
+    let detail: String
+    let icon: String
+    let actionTitle: String
+    var isDisabled = false
+    let action: () -> Void
+
+    var body: some View {
+        HStack(spacing: 12) {
+            Image(systemName: icon)
+                .foregroundStyle(.secondary)
+                .frame(width: 30)
+            VStack(alignment: .leading, spacing: 2) {
+                Text(title).fontWeight(.medium)
+                Text(detail)
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+            }
+            Spacer()
+            Button(actionTitle, action: action)
+                .disabled(isDisabled)
+        }
+        .padding(.vertical, 10)
     }
 }
 
