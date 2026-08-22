@@ -1,5 +1,6 @@
 import AppKit
 import Combine
+import Foundation
 import SwiftUI
 
 struct SteamGame: Identifiable, Equatable {
@@ -26,12 +27,14 @@ final class InstallerModel: ObservableObject {
     @Published var operationInProgress = false
     @Published var isSteamRunning = false
     @Published var games: [SteamGame] = []
+    @Published var localizedGameNames: [String: String] = [:]
     @Published var shortcutMessage = ""
 
     private var process: Process?
     private var runtimeProcess: Process?
     private var pendingOutput = ""
     private var statusTimer: AnyCancellable?
+    private var requestedLocalizedNames: Set<String> = []
 
     var isBusy: Bool { state == .checking || state == .installing || operationInProgress }
 
@@ -257,7 +260,10 @@ final class InstallerModel: ObservableObject {
                     installDirectory: String(parts[3]),
                     iconPath: rawIconPath.isEmpty ? nil : rawIconPath
                 )
-                if !games.contains(game) { games.append(game) }
+                if !games.contains(game) {
+                    games.append(game)
+                    fetchLocalizedName(for: game)
+                }
             }
         } else if value.hasPrefix("@@SHORTCUT|") {
             shortcutMessage = "Mac용 게임 바로가기를 만들었습니다"
@@ -291,6 +297,38 @@ final class InstallerModel: ObservableObject {
         let currentText = formatter.string(fromByteCount: current)
         guard total > 0 else { return "\(label) · \(currentText)" }
         return "\(label) · \(currentText) / \(formatter.string(fromByteCount: total))"
+    }
+
+    private func fetchLocalizedName(for game: SteamGame) {
+        guard game.id.allSatisfy(\.isNumber), !requestedLocalizedNames.contains(game.id) else { return }
+        requestedLocalizedNames.insert(game.id)
+
+        let cacheKey = "localizedGameName.ko.\(game.id)"
+        if let cached = UserDefaults.standard.string(forKey: cacheKey), !cached.isEmpty {
+            if cached.caseInsensitiveCompare(game.name) != .orderedSame {
+                localizedGameNames[game.id] = cached
+            }
+            return
+        }
+
+        guard let url = URL(string: "https://store.steampowered.com/api/appdetails?appids=\(game.id)&l=koreana&cc=KR") else { return }
+        URLSession.shared.dataTask(with: url) { [weak self] data, response, _ in
+            guard let data,
+                  (response as? HTTPURLResponse)?.statusCode == 200,
+                  let root = try? JSONSerialization.jsonObject(with: data) as? [String: Any],
+                  let app = root[game.id] as? [String: Any],
+                  app["success"] as? Bool == true,
+                  let details = app["data"] as? [String: Any],
+                  let localizedName = details["name"] as? String,
+                  !localizedName.isEmpty else { return }
+            DispatchQueue.main.async {
+                guard let self else { return }
+                UserDefaults.standard.set(localizedName, forKey: cacheKey)
+                if localizedName.caseInsensitiveCompare(game.name) != .orderedSame {
+                    self.localizedGameNames[game.id] = localizedName
+                }
+            }
+        }.resume()
     }
 
     private func friendlyPhase(_ raw: String) -> String {
@@ -423,8 +461,9 @@ struct GameLibraryView: View {
                     HStack(spacing: 14) {
                         GameIconView(game: game)
                         VStack(alignment: .leading, spacing: 3) {
-                            Text(game.name).fontWeight(.semibold)
-                            Text("Steam App ID \(game.id)")
+                            let localizedName = model.localizedGameNames[game.id]
+                            Text(localizedName ?? game.name).fontWeight(.semibold)
+                            Text(localizedName == nil ? "Steam App ID \(game.id)" : "\(game.name) · Steam App ID \(game.id)")
                                 .font(.caption)
                                 .foregroundStyle(.secondary)
                         }
