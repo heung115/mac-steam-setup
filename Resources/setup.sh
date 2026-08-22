@@ -29,6 +29,8 @@ PLIST="$WRAPPER/Contents/Info.plist"
 OWNER_MARKER="$WRAPPER/Contents/.macsteamsetup-owner"
 HTML_CACHE="$WRAPPER/Contents/drive_c/users/$USER/AppData/Local/Steam/htmlcache"
 LOCK_DIR="$APP_CACHE/setup.lock"
+STEAMAPPS="$WRAPPER/Contents/drive_c/Program Files (x86)/Steam/steamapps"
+GAME_SHORTCUTS_DIR="$HOME/Applications/Windows Steam Games"
 
 progress() { printf '@@PROGRESS|%s|%s\n' "$1" "${2:-}"; }
 phase() {
@@ -126,6 +128,49 @@ if [[ "${1:-setup}" == "stop" ]]; then
   steam_is_running && fail "Windows Steam을 완전히 종료하지 못했습니다"
   printf '@@STATE|ready\n'
   message "Windows Steam을 완전히 종료했습니다"
+  exit 0
+fi
+
+if [[ "${1:-setup}" == "list-games" ]]; then
+  found=0
+  if [[ -d "$STEAMAPPS" ]]; then
+    while IFS= read -r manifest; do
+      game="$(read_appmanifest "$manifest" 2>/dev/null || true)"
+      [[ -n "$game" ]] || continue
+      printf '@@GAME|%s\n' "$game"
+      found=1
+    done < <(/usr/bin/find "$STEAMAPPS" -maxdepth 1 -type f -name 'appmanifest_*.acf' -print | /usr/bin/sort)
+  fi
+  (( found == 1 )) || message "설치된 Windows Steam 게임이 없습니다"
+  exit 0
+fi
+
+if [[ "${1:-setup}" == "create-shortcut" ]]; then
+  app_id="${2:-}"
+  [[ "$app_id" =~ ^[0-9]+$ ]] || fail "올바른 Steam 게임 ID가 아닙니다"
+  manifest="$STEAMAPPS/appmanifest_${app_id}.acf"
+  [[ -f "$manifest" ]] || fail "설치된 게임 정보를 찾을 수 없습니다"
+  game="$(read_appmanifest "$manifest")" || fail "게임 정보를 읽지 못했습니다"
+  IFS='|' read -r parsed_id game_name install_dir <<< "$game"
+  [[ "$parsed_id" == "$app_id" ]] || fail "게임 ID가 설치 정보와 일치하지 않습니다"
+  safe_name="$(printf '%s' "$game_name" | /usr/bin/tr '/:' '--')"
+  shortcut="$GAME_SHORTCUTS_DIR/${safe_name}.app"
+  [[ ! -L "$shortcut" ]] || fail "게임 바로가기 위치가 안전하지 않습니다"
+  /bin/mkdir -p "$shortcut/Contents/MacOS"
+  /usr/bin/ditto "$SCRIPT_DIR/game_launcher.sh" "$shortcut/Contents/MacOS/GameLauncher"
+  /bin/chmod +x "$shortcut/Contents/MacOS/GameLauncher"
+  plist="$shortcut/Contents/Info.plist"
+  /usr/bin/plutil -create xml1 "$plist"
+  /usr/bin/plutil -insert CFBundleExecutable -string GameLauncher "$plist"
+  /usr/bin/plutil -insert CFBundleIdentifier -string "local.macsteam.game.${app_id}" "$plist"
+  /usr/bin/plutil -insert CFBundleName -string "$game_name" "$plist"
+  /usr/bin/plutil -insert CFBundlePackageType -string APPL "$plist"
+  /usr/bin/plutil -insert CFBundleShortVersionString -string 1.0 "$plist"
+  /usr/bin/plutil -insert LSUIElement -bool true "$plist"
+  /usr/bin/plutil -insert SteamAppID -string "$app_id" "$plist"
+  /usr/bin/codesign --force --deep --sign - "$shortcut" >/dev/null
+  printf '@@SHORTCUT|%s\n' "$shortcut"
+  message "${game_name} 바로가기를 만들었습니다"
   exit 0
 fi
 

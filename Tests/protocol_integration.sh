@@ -62,4 +62,24 @@ output="$(bash "$SCRIPT" stop)"
 assert_contains "$output" '@@PHASE|stopping'
 assert_contains "$output" '@@STATE|ready'
 
+steamapps="$wrapper/Contents/drive_c/Program Files (x86)/Steam/steamapps"
+mkdir -p "$steamapps"
+cat > "$steamapps/appmanifest_123.acf" <<'ACF'
+"AppState"
+{
+  "appid" "123"
+  "name" "Example Game"
+  "installdir" "ExampleGame"
+}
+ACF
+output="$(bash "$SCRIPT" list-games)"
+assert_contains "$output" '@@GAME|123|Example Game|ExampleGame'
+output="$(bash "$SCRIPT" create-shortcut 123)"
+assert_contains "$output" '@@SHORTCUT|'
+shortcut="$HOME/Applications/Windows Steam Games/Example Game.app"
+[[ -x "$shortcut/Contents/MacOS/GameLauncher" ]] || { echo 'FAIL: game launcher missing' >&2; exit 1; }
+[[ "$(/usr/bin/plutil -extract SteamAppID raw "$shortcut/Contents/Info.plist")" == "123" ]] \
+  || { echo 'FAIL: game shortcut App ID' >&2; exit 1; }
+/usr/bin/codesign --verify --deep --strict "$shortcut"
+
 printf 'PASS: setup protocol integration tests\n'

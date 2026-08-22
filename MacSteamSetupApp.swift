@@ -2,6 +2,12 @@ import AppKit
 import Combine
 import SwiftUI
 
+struct SteamGame: Identifiable, Equatable {
+    let id: String
+    let name: String
+    let installDirectory: String
+}
+
 @MainActor
 final class InstallerModel: ObservableObject {
     enum State {
@@ -16,11 +22,14 @@ final class InstallerModel: ObservableObject {
     @Published var progress = 0.0
     @Published var transferText = ""
     @Published var needsUserAction = false
+    @Published var operationInProgress = false
+    @Published var games: [SteamGame] = []
+    @Published var shortcutMessage = ""
 
     private var process: Process?
     private var pendingOutput = ""
 
-    var isBusy: Bool { state == .checking || state == .installing }
+    var isBusy: Bool { state == .checking || state == .installing || operationInProgress }
 
     var primaryTitle: String {
         switch state {
@@ -72,7 +81,18 @@ final class InstallerModel: ObservableObject {
         run(mode: "stop")
     }
 
-    private func run(mode: String) {
+    func loadGames() {
+        games = []
+        shortcutMessage = ""
+        run(mode: "list-games", changesMainState: false)
+    }
+
+    func createShortcut(for game: SteamGame) {
+        shortcutMessage = "\(game.name) 바로가기를 만드는 중입니다"
+        run(mode: "create-shortcut", arguments: [game.id], changesMainState: false)
+    }
+
+    private func run(mode: String, arguments: [String] = [], changesMainState: Bool = true) {
         guard process == nil else { return }
         guard let script = Bundle.main.path(forResource: "setup", ofType: "sh") else {
             state = .failed
@@ -80,7 +100,12 @@ final class InstallerModel: ObservableObject {
             return
         }
 
-        state = mode == "check" ? .checking : .installing
+        if mode == "check" {
+            state = .checking
+        } else if changesMainState {
+            state = .installing
+        }
+        operationInProgress = true
         if mode == "setup" {
             log = ""
             progress = 0
@@ -91,7 +116,7 @@ final class InstallerModel: ObservableObject {
         let task = Process()
         let pipe = Pipe()
         task.executableURL = URL(fileURLWithPath: "/bin/bash")
-        task.arguments = [script, mode]
+        task.arguments = [script, mode] + arguments
         task.standardOutput = pipe
         task.standardError = pipe
         let inherited = ProcessInfo.processInfo.environment
@@ -118,8 +143,9 @@ final class InstallerModel: ObservableObject {
                     self?.pendingOutput = ""
                 }
                 self?.process = nil
+                self?.operationInProgress = false
                 if finished.terminationStatus != 0 {
-                    self?.state = .failed
+                    if changesMainState { self?.state = .failed }
                     if self?.message.isEmpty == true { self?.message = "자세한 내용은 설치 기록에서 확인할 수 있습니다" }
                 } else if mode == "setup" {
                     self?.state = .ready
@@ -168,6 +194,14 @@ final class InstallerModel: ObservableObject {
                let total = Int64(parts[3]) {
                 transferText = formatTransfer(label: String(parts[1]), current: current, total: total)
             }
+        } else if value.hasPrefix("@@GAME|") {
+            let parts = value.split(separator: "|", maxSplits: 3, omittingEmptySubsequences: false)
+            if parts.count == 4 {
+                let game = SteamGame(id: String(parts[1]), name: String(parts[2]), installDirectory: String(parts[3]))
+                if !games.contains(game) { games.append(game) }
+            }
+        } else if value.hasPrefix("@@SHORTCUT|") {
+            shortcutMessage = "Mac용 게임 바로가기를 만들었습니다"
         } else if value == "@@STATE|ready" {
             state = .ready
             progress = 100
@@ -218,6 +252,7 @@ final class InstallerModel: ObservableObject {
 struct ContentView: View {
     @StateObject private var model = InstallerModel()
     @State private var showStopConfirmation = false
+    @State private var showGameShortcuts = false
 
     var body: some View {
         VStack(alignment: .leading, spacing: 22) {
@@ -288,6 +323,11 @@ struct ContentView: View {
 
             HStack {
                 if model.state == .ready {
+                    Button("게임 바로가기") {
+                        showGameShortcuts = true
+                        model.loadGames()
+                    }
+                    .disabled(model.isBusy)
                     Button("로그인 화면 복구", action: model.repairSteamUI)
                         .disabled(model.isBusy)
                     Button("Windows Steam 완전 종료") {
@@ -327,6 +367,67 @@ struct ContentView: View {
         } message: {
             Text("실행 중인 Windows 게임과 Steam 다운로드도 함께 종료됩니다.")
         }
+        .sheet(isPresented: $showGameShortcuts) {
+            GameShortcutSheet(model: model)
+        }
+    }
+}
+
+struct GameShortcutSheet: View {
+    @ObservedObject var model: InstallerModel
+    @Environment(\.dismiss) private var dismiss
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 18) {
+            HStack {
+                VStack(alignment: .leading, spacing: 4) {
+                    Text("게임 바로가기")
+                        .font(.title2.bold())
+                    Text("Steam을 전면에 열지 않고 선택한 게임을 바로 시작하는 Mac 앱을 만듭니다.")
+                        .foregroundStyle(.secondary)
+                }
+                Spacer()
+                Button("닫기", action: dismiss.callAsFunction)
+            }
+
+            if model.operationInProgress && model.games.isEmpty {
+                HStack(spacing: 10) {
+                    ProgressView()
+                    Text("설치된 게임을 찾는 중입니다")
+                }
+            } else if model.games.isEmpty {
+                ContentUnavailableView(
+                    "설치된 게임이 없습니다",
+                    systemImage: "gamecontroller",
+                    description: Text("Windows Steam에서 게임을 설치한 다음 다시 확인해 주세요.")
+                )
+            } else {
+                List(model.games) { game in
+                    HStack {
+                        VStack(alignment: .leading, spacing: 3) {
+                            Text(game.name).fontWeight(.semibold)
+                            Text("Steam App ID \(game.id)")
+                                .font(.caption)
+                                .foregroundStyle(.secondary)
+                        }
+                        Spacer()
+                        Button("Mac 앱 만들기") {
+                            model.createShortcut(for: game)
+                        }
+                        .disabled(model.operationInProgress)
+                    }
+                    .padding(.vertical, 4)
+                }
+            }
+
+            if !model.shortcutMessage.isEmpty {
+                Label(model.shortcutMessage, systemImage: "checkmark.circle")
+                    .font(.callout)
+                    .foregroundStyle(.secondary)
+            }
+        }
+        .padding(24)
+        .frame(width: 560, height: 420)
     }
 }
 
