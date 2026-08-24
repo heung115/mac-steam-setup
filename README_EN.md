@@ -32,12 +32,12 @@ This is an independent, unofficial community project. It is not affiliated with,
 
 ### Download the beta app
 
-1. Download the latest `Mac-Steam-Setup-*.zip` from [GitHub Releases](https://github.com/heung115/mac-steam-setup/releases).
-2. Unzip it and move `Mac Steam Setup.app` to your Applications folder.
+1. Download the latest `Mac-Steam-Setup-*.dmg` from [GitHub Releases](https://github.com/heung115/mac-steam-setup/releases).
+2. Open the DMG and drag `Mac Steam Setup.app` onto the `Applications` folder shown beside it.
 3. On first launch, right-click or Control-click the app and choose **Open**.
 4. If macOS still blocks it, try opening it once, then go to **System Settings → Privacy & Security → Open Anyway**. After this one-time approval, you can open it normally by double-clicking.
 
-The current beta is not signed or notarized by Apple. Make sure you downloaded it directly from this GitHub repository. A `.sha256` checksum is provided so you can check that the download was not corrupted.
+The current beta is not signed or notarized by Apple. Make sure you downloaded it directly from this GitHub repository. A `.sha256` checksum is provided so you can check that the download was not corrupted. A ZIP is also available in the same Release as a fallback if the DMG does not open.
 
 ### Build from source
 

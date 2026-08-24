@@ -26,3 +26,14 @@ jobs:
         run: |
           codesign --verify --deep --strict "build/Mac Steam Setup.app"
           test "$(lipo -archs 'build/Mac Steam Setup.app/Contents/MacOS/MacSteamSetup')" = "arm64"
+
+      - name: Verify DMG packaging
+        timeout-minutes: 2
+        run: |
+          bash scripts/create_dmg.sh "build/Mac Steam Setup.app" "build/Mac-Steam-Setup-test.dmg"
+          mount_dir="$(mktemp -d)"
+          hdiutil attach -readonly -nobrowse -mountpoint "$mount_dir" "build/Mac-Steam-Setup-test.dmg"
+          test -d "$mount_dir/Mac Steam Setup.app"
+          test "$(readlink "$mount_dir/Applications")" = "/Applications"
+          codesign --verify --deep --strict "$mount_dir/Mac Steam Setup.app"
+          hdiutil detach "$mount_dir"

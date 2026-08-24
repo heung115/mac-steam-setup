@@ -30,18 +30,31 @@ jobs:
 
       - name: Package app
         id: package
+        timeout-minutes: 2
         run: |
           archive="Mac-Steam-Setup-${GITHUB_REF_NAME}.zip"
+          disk_image="Mac-Steam-Setup-${GITHUB_REF_NAME}.dmg"
           ditto -c -k --sequesterRsrc --keepParent "build/Mac Steam Setup.app" "$archive"
+          bash scripts/create_dmg.sh "build/Mac Steam Setup.app" "$disk_image"
+          mount_dir="$(mktemp -d)"
+          hdiutil attach -readonly -nobrowse -mountpoint "$mount_dir" "$disk_image"
+          test -d "$mount_dir/Mac Steam Setup.app"
+          test "$(readlink "$mount_dir/Applications")" = "/Applications"
+          codesign --verify --deep --strict "$mount_dir/Mac Steam Setup.app"
+          hdiutil detach "$mount_dir"
           shasum -a 256 "$archive" > "$archive.sha256"
+          shasum -a 256 "$disk_image" > "$disk_image.sha256"
           echo "archive=$archive" >> "$GITHUB_OUTPUT"
+          echo "disk_image=$disk_image" >> "$GITHUB_OUTPUT"
 
       - name: Publish prerelease
         env:
           GH_TOKEN: ${{ github.token }}
           ARCHIVE: ${{ steps.package.outputs.archive }}
+          DISK_IMAGE: ${{ steps.package.outputs.disk_image }}
         run: |
           gh release create "$GITHUB_REF_NAME" \
+            "$DISK_IMAGE" "$DISK_IMAGE.sha256" \
             "$ARCHIVE" "$ARCHIVE.sha256" \
             --prerelease \
             --title "Mac Steam Setup ${GITHUB_REF_NAME}" \

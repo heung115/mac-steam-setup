@@ -32,12 +32,12 @@
 
 ### 베타 앱 다운로드
 
-1. [GitHub Releases](https://github.com/heung115/mac-steam-setup/releases)에서 최신 `Mac-Steam-Setup-*.zip`을 받습니다.
-2. 압축을 풀고 `Mac Steam Setup.app`을 `응용 프로그램` 폴더로 옮깁니다.
+1. [GitHub Releases](https://github.com/heung115/mac-steam-setup/releases)에서 최신 `Mac-Steam-Setup-*.dmg`를 받습니다.
+2. DMG를 열고 `Mac Steam Setup.app`을 함께 보이는 `Applications` 폴더로 드래그합니다.
 3. 첫 실행은 앱을 우클릭(또는 Control-클릭)하고 `열기`를 선택합니다.
 4. macOS가 계속 차단하면 앱을 한 번 실행해 본 뒤 `시스템 설정 → 개인정보 보호 및 보안 → 그래도 열기`를 선택합니다. 한 번 승인하면 이후에는 평소처럼 더블클릭할 수 있습니다.
 
-현재 베타는 Apple의 서명·공증을 받지 않았습니다. GitHub 저장소에서 직접 받은 파일인지 확인하고, 함께 제공되는 `.sha256` 체크섬으로 다운로드가 손상되지 않았는지 확인할 수 있습니다.
+현재 베타는 Apple의 서명·공증을 받지 않았습니다. GitHub 저장소에서 직접 받은 파일인지 확인하고, 함께 제공되는 `.sha256` 체크섬으로 다운로드가 손상되지 않았는지 확인할 수 있습니다. DMG가 열리지 않는 경우에는 같은 Release의 ZIP을 대신 사용할 수 있습니다.
 
 ### 소스에서 빌드
 
