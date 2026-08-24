@@ -618,9 +618,12 @@ struct ManagementView: View {
                     .background(.black.opacity(0.06), in: RoundedRectangle(cornerRadius: 10))
                 }
 
-                Text("일부 게임과 안티치트는 호환되지 않을 수 있습니다.")
-                    .font(.caption)
-                    .foregroundStyle(.tertiary)
+                VStack(alignment: .leading, spacing: 3) {
+                    Text("일부 게임과 안티치트는 호환되지 않을 수 있습니다.")
+                    Text("Valve, Apple 또는 Sikarugir와 제휴·승인·후원 관계가 없는 비공식 프로젝트입니다.")
+                }
+                .font(.caption)
+                .foregroundStyle(.tertiary)
             }
             .padding(28)
         }

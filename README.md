@@ -2,6 +2,8 @@
 
 Apple Silicon Mac에서 Windows Steam 환경을 Sikarugir 방식으로 준비하는 비상업적 프로토타입입니다. 자체 Wine이나 Steam을 포함하지 않고, 고정된 공식 Sikarugir 엔진/템플릿과 Valve의 Steam 설치 파일을 실행 시점에 내려받습니다.
 
+이 프로젝트는 독립적인 비공식 커뮤니티 프로젝트이며 Valve Corporation, Apple Inc. 또는 Sikarugir 프로젝트와 제휴하거나 이들로부터 승인·후원받지 않았습니다. Steam 및 Steam 로고는 Valve Corporation의 상표 또는 등록상표입니다. 이 프로젝트는 Steam 로고나 Valve의 공식 디자인 자산을 사용하지 않습니다.
+
 ## 현재 기능
 
 - 단계별 전체 진행률과 다운로드 용량 표시

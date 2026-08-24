@@ -2,6 +2,8 @@
 
 Mac Steam Setup's source code and small installer application do not contain Steam, Windows games, Sikarugir engines/templates, Wine, or D3DMetal. The installer downloads fixed upstream releases directly to the user's Mac.
 
+Mac Steam Setup is an independent, unofficial community project. It is not affiliated with, endorsed by, sponsored by, or approved by Valve Corporation, Apple Inc., or the Sikarugir project. Steam and the Steam logo are trademarks and/or registered trademarks of Valve Corporation in the United States and/or other countries. This project does not use the Steam logo or Valve's official design assets.
+
 - The setup orchestration was informed by `mirpo/windows-steam-on-apple-silicon`, released under CC0-1.0. The CC0 grant covers that repository's files only.
 - Sikarugir components have their own mixed licensing. Its modified Configure component is described as LGPL-2.1, while its launcher, creator, master wrapper, engines, and renderer payloads are not covered by that LGPL grant. They are not relicensed by this project.
 - D3DMetal is proprietary Apple software. The included Apple license in the upstream Sikarugir template restricts distribution to non-commercial purposes and limits permitted use. This project's MIT license grants no rights to D3DMetal.
