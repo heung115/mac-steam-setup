@@ -22,8 +22,9 @@ staging_dir="$work_dir/staging"
 /bin/ln -s /Applications "$staging_dir/Applications"
 
 /usr/bin/hdiutil makehybrid \
-  -hfs \
-  -hfs-volume-name "$volume_name" \
+  -udf \
+  -udf-version 1.02 \
+  -udf-volume-name "$volume_name" \
   -o "$output_dmg" \
   -ov \
   "$staging_dir"
