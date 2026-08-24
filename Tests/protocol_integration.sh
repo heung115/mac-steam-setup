@@ -37,7 +37,9 @@ exit 0
 SH
 chmod +x "$wrapper/Contents/MacOS/Sikarugir"
 mkdir -p "$wrapper/Contents/drive_c/Program Files (x86)/Steam"
-touch "$wrapper/Contents/drive_c/Program Files (x86)/Steam/steam.exe"
+steam_test_exe="$wrapper/Contents/drive_c/Program Files (x86)/Steam/Steam.exe"
+/bin/cp /bin/sleep "$steam_test_exe"
+/bin/chmod +x "$steam_test_exe"
 cat > "$wrapper/Contents/Info.plist" <<'PLIST'
 <?xml version="1.0" encoding="UTF-8"?>
 <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
@@ -78,6 +80,44 @@ assert_contains "$output" '@@PHASE|repairing'
 output="$(bash "$SCRIPT" stop)"
 assert_contains "$output" '@@PHASE|stopping'
 assert_contains "$output" '@@STATE|ready'
+
+# A previous Wine server can disappear while its Windows Steam processes remain
+# orphaned. Complete exit must still remove those processes even when the
+# Sikarugir launcher is no longer present.
+steam_test_dir="$wrapper/Contents/drive_c/Program Files (x86)/Steam"
+helper_test_exe="$steam_test_dir/steamwebhelper.exe"
+/bin/cp /bin/sleep "$helper_test_exe"
+/bin/chmod +x "$helper_test_exe"
+game_test_exe="$steam_test_dir/game.exe"
+/bin/cp /bin/sleep "$game_test_exe"
+/bin/chmod +x "$game_test_exe"
+/bin/bash -c 'cd "$1"; exec -a "$2" "$3" 30' _ \
+  "$wrapper/Contents/drive_c/Program Files (x86)/Steam" \
+  'C:\Program Files (x86)\Steam\Steam.exe' "$steam_test_exe" &
+orphan_steam_pid=$!
+/bin/bash -c 'cd "$1"; exec -a "$2" "$3" 30' _ \
+  "$wrapper/Contents/drive_c/Program Files (x86)/Steam" \
+  'C:\Program Files (x86)\Steam\bin\cef\steamwebhelper.exe' "$helper_test_exe" &
+orphan_helper_pid=$!
+/bin/bash -c 'cd "$1"; exec -a "$2" "$3" 30' _ \
+  "$wrapper/Contents/drive_c/Program Files (x86)/Steam" \
+  'D:\SteamLibrary\steamapps\common\ExampleGame\game.exe' "$game_test_exe" &
+orphan_game_pid=$!
+/bin/sleep 0.1
+output="$(bash "$SCRIPT" runtime-status)"
+assert_contains "$output" '@@RUNTIME|running'
+output="$(bash "$SCRIPT" stop)"
+assert_contains "$output" '@@STATE|ready'
+if /bin/kill -0 "$orphan_steam_pid" 2>/dev/null \
+  || /bin/kill -0 "$orphan_helper_pid" 2>/dev/null \
+  || /bin/kill -0 "$orphan_game_pid" 2>/dev/null; then
+  /bin/kill "$orphan_steam_pid" "$orphan_helper_pid" "$orphan_game_pid" 2>/dev/null || true
+  echo 'FAIL: complete exit left orphaned Windows Steam processes running' >&2
+  exit 1
+fi
+wait "$orphan_steam_pid" 2>/dev/null || true
+wait "$orphan_helper_pid" 2>/dev/null || true
+wait "$orphan_game_pid" 2>/dev/null || true
 
 steamapps="$wrapper/Contents/drive_c/Program Files (x86)/Steam/steamapps"
 mkdir -p "$steamapps"

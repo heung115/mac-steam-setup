@@ -56,28 +56,89 @@ steam_is_running() {
   /bin/ps -axo command= | wrapper_launcher_is_running_in "$WRAPPER/Contents/MacOS/Sikarugir"
 }
 
-steam_client_is_running() {
-  /bin/ps -axo command= | /usr/bin/awk '
-    tolower($0) ~ /^[[:space:]]*[a-z]:\\.*\\steam\.exe([[:space:]]|$)/ { found=1 }
-    END { exit(found ? 0 : 1) }
+steam_process_candidates() {
+  /bin/ps -axo pid=,command= | /usr/bin/awk '
+    {
+      pid=$1
+      $1=""
+      sub(/^[[:space:]]+/, "", $0)
+      command=tolower($0)
+      if (command ~ /^[a-z]:\\/) print pid
+    }
   '
+}
+
+process_belongs_to_wrapper() {
+  local pid="$1"
+  local contents_path
+  contents_path="$(cd "$WRAPPER/Contents" && pwd -P)/"
+  /usr/sbin/lsof -a -p "$pid" -d cwd,txt -Fn 2>/dev/null \
+    | /usr/bin/grep -Fq "n$contents_path"
+}
+
+steam_process_pids() {
+  local pid
+  while IFS= read -r pid; do
+    [[ "$pid" =~ ^[0-9]+$ ]] || continue
+    process_belongs_to_wrapper "$pid" && printf '%s\n' "$pid"
+  done < <(steam_process_candidates)
+}
+
+wrapper_has_named_process() {
+  local process_name
+  local contents_path
+  local lsof_args=(-a -d cwd -Fn)
+  contents_path="$(cd "$WRAPPER/Contents" && pwd -P)/"
+  for process_name in "$@"; do
+    lsof_args+=(-c "$process_name")
+  done
+  /usr/sbin/lsof "${lsof_args[@]}" 2>/dev/null \
+    | /usr/bin/grep -Fq "n$contents_path"
+}
+
+steam_client_is_running() {
+  wrapper_has_named_process Steam.exe steamwebhelper steamservice
 }
 
 steam_runtime_is_running() {
-  steam_is_running && steam_client_is_running
+  steam_is_running || steam_client_is_running
 }
 
 steam_ui_is_running() {
-  /bin/ps -axo command= | /usr/bin/awk '
-    tolower($0) ~ /steamwebhelper\.exe/ { found=1 }
-    END { exit(found ? 0 : 1) }
-  '
+  wrapper_has_named_process steamwebhelper
+}
+
+terminate_orphaned_steam_processes() {
+  local pids pid
+  pids="$(steam_process_pids)"
+  [[ -n "$pids" ]] || return 0
+
+  while IFS= read -r pid; do
+    [[ "$pid" =~ ^[0-9]+$ ]] && /bin/kill -TERM "$pid" 2>/dev/null || true
+  done <<< "$pids"
+  for _ in {1..20}; do
+    pids="$(steam_process_pids)"
+    [[ -z "$pids" ]] && return 0
+    /bin/sleep 0.25
+  done
+
+  while IFS= read -r pid; do
+    [[ "$pid" =~ ^[0-9]+$ ]] && /bin/kill -KILL "$pid" 2>/dev/null || true
+  done <<< "$pids"
+  for _ in {1..20}; do
+    [[ -z "$(steam_process_pids)" ]] && return 0
+    /bin/sleep 0.25
+  done
+  return 1
 }
 
 stop_wrapper() {
   "$WRAPPER/Contents/MacOS/Sikarugir" WSS-wineserverkill >/dev/null 2>&1 || true
+  terminate_orphaned_steam_processes || return 1
   for _ in {1..20}; do
-    steam_is_running || return 0
+    if ! steam_is_running && ! steam_client_is_running; then
+      return 0
+    fi
     /bin/sleep 0.25
   done
   return 1
