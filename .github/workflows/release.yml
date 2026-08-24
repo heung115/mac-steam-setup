@@ -1,0 +1,48 @@
+name: Build beta release
+
+on:
+  push:
+    tags:
+      - "v*"
+
+permissions:
+  contents: write
+
+jobs:
+  release:
+    runs-on: macos-14
+    steps:
+      - name: Check out source
+        uses: actions/checkout@v4
+
+      - name: Run regression tests
+        run: bash Tests/run.sh
+
+      - name: Build app
+        run: ./build.command
+
+      - name: Verify app
+        run: |
+          codesign --verify --deep --strict "build/Mac Steam Setup.app"
+          test "$(lipo -archs 'build/Mac Steam Setup.app/Contents/MacOS/MacSteamSetup')" = "arm64"
+          test "$(plutil -extract CFBundleShortVersionString raw Info.plist)" = "${GITHUB_REF_NAME#v}" || \
+            test "v$(plutil -extract CFBundleShortVersionString raw Info.plist)" = "${GITHUB_REF_NAME%%-*}"
+
+      - name: Package app
+        id: package
+        run: |
+          archive="Mac-Steam-Setup-${GITHUB_REF_NAME}.zip"
+          ditto -c -k --sequesterRsrc --keepParent "build/Mac Steam Setup.app" "$archive"
+          shasum -a 256 "$archive" > "$archive.sha256"
+          echo "archive=$archive" >> "$GITHUB_OUTPUT"
+
+      - name: Publish prerelease
+        env:
+          GH_TOKEN: ${{ github.token }}
+          ARCHIVE: ${{ steps.package.outputs.archive }}
+        run: |
+          gh release create "$GITHUB_REF_NAME" \
+            "$ARCHIVE" "$ARCHIVE.sha256" \
+            --prerelease \
+            --title "Mac Steam Setup ${GITHUB_REF_NAME}" \
+            --notes-file docs/BETA_RELEASE_NOTES.md
