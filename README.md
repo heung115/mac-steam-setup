@@ -1,5 +1,7 @@
 # Mac Steam Setup
 
+[한국어](README.md) | [English](README_EN.md)
+
 Apple Silicon Mac에서 Windows Steam 환경을 Sikarugir 방식으로 준비하는 비상업적 프로토타입입니다. 자체 Wine이나 Steam을 포함하지 않고, 고정된 공식 Sikarugir 엔진/템플릿과 Valve의 Steam 설치 파일을 실행 시점에 내려받습니다.
 
 이 프로젝트는 독립적인 비공식 커뮤니티 프로젝트이며 Valve Corporation, Apple Inc. 또는 Sikarugir 프로젝트와 제휴하거나 이들로부터 승인·후원받지 않았습니다. Steam 및 Steam 로고는 Valve Corporation의 상표 또는 등록상표입니다. 이 프로젝트는 Steam 로고나 Valve의 공식 디자인 자산을 사용하지 않습니다.
@@ -46,6 +48,12 @@ bash Tests/run.sh
 - Windows Steam 전체 프로세스 종료 후 재실행
 
 게임별 실행 성공 여부와 안티치트 호환성은 게임마다 다릅니다.
+
+## 바이너리 배포
+
+CI에서 빌드한 작은 설치 앱은 Steam, Wine, D3DMetal 또는 Sikarugir 엔진/템플릿을 포함하지 않는 조건으로 배포할 수 있습니다. 제3자 구성요소는 반드시 현재처럼 사용자의 Mac에서 공식 배포 주소로 직접 내려받아야 합니다.
+
+`build.command`가 만드는 앱은 로컬 테스트용 임시(ad-hoc) 서명입니다. 다른 사용자에게 GitHub Release 등으로 배포하려면 Apple Developer Program의 Developer ID로 서명하고 Apple 공증을 받은 뒤 ZIP 또는 DMG로 제공하는 것을 권장합니다. 서명 인증서와 공증 자격 증명은 저장소에 올리지 말고 CI의 암호화된 비밀값으로 관리해야 합니다.
 
 ## 라이선스 경계
 

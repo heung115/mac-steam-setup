@@ -1,0 +1,60 @@
+# Mac Steam Setup
+
+[한국어](README.md) | [English](README_EN.md)
+
+Mac Steam Setup is a non-commercial prototype that prepares a Windows Steam environment on Apple Silicon Macs using the Sikarugir approach. It does not bundle its own Wine build or Steam. Instead, it downloads pinned official Sikarugir engine and wrapper releases and Valve's Steam installer when the user starts setup.
+
+This is an independent, unofficial community project. It is not affiliated with, endorsed by, sponsored by, or approved by Valve Corporation, Apple Inc., or the Sikarugir project. Steam and the Steam logo are trademarks and/or registered trademarks of Valve Corporation. This project does not use the Steam logo or Valve's official design assets.
+
+## Features
+
+- Step-by-step progress and downloaded-size reporting
+- Protection against duplicate installation and launch requests
+- Automatic cleanup of the Sikarugir waiting process left after Steam installation
+- Automatic D3DMetal and Steam executable configuration
+- Hidden background Sikarugir launcher Dock icon
+- Steam login web-cache repair
+- Complete shutdown of Windows Steam and running Windows games
+- Lightweight macOS app shortcuts for installed games
+- No changes to an existing macOS Steam installation or Porting Kit
+
+## Usage
+
+```sh
+./build.command
+```
+
+Open `build/Mac Steam Setup.app`, then click `Windows Steam 준비하기` (Prepare Windows Steam). Complete the Steam installer using its default path. The setup assistant cleans up the first launch and applies the final configuration whether or not Steam is started at the end of the Windows installer.
+
+Steam's initial connection checks may take about a minute on some networks. An IPv6 `TIMEOUT` can also appear during an otherwise normal fast launch, so that message alone does not prove that startup failed. Reproduction conditions and follow-up steps are documented in [Windows Steam startup network-delay notes](docs/diagnostics/steam-startup-network-delay.md). The initial Wine updater cannot render Korean fonts correctly, so Steam is prepared with English as its default language. You can switch to Korean in Steam settings, although Korean text in a later updater may appear as squares.
+
+After installing a game, you can create a macOS app from the game-shortcut screen. A shortcut does not copy the Wine environment or game files. It starts Windows Steam in the background and launches the corresponding Steam App ID. Games that use Steam DRM cannot bypass the Steam process itself.
+
+## Verification
+
+```sh
+bash Tests/run.sh
+```
+
+The test suite covers installation-state detection, monotonically increasing progress, Steam installation completion, wrapper configuration, duplicate-process detection, cache repair, the full shutdown protocol, Steam manifest parsing, and shortcut creation and signing.
+
+The following checks were completed on a Mac running macOS 26.6.2 with an M4 Pro and Steam build `1785799196`:
+
+- Steam installation and update to the latest client
+- Login-window rendering and `steamwebhelper` stability for more than five minutes
+- Restart after clearing the login cache
+- Duplicate launch-request prevention
+- Hidden Sikarugir launcher Dock icon
+- Restart after completely terminating all Windows Steam processes
+
+Game compatibility and anti-cheat support vary by title.
+
+## Binary distribution
+
+The small installer app produced by CI may be distributed as long as it does not include Steam, Wine, D3DMetal, or Sikarugir engines and templates. Third-party components must continue to be downloaded on the user's Mac from their official distribution URLs.
+
+The app produced by `build.command` uses an ad-hoc signature intended for local testing. For a public GitHub Release, sign it with a Developer ID certificate from the Apple Developer Program, submit it for Apple notarization, and distribute the notarized result as a ZIP or DMG. Keep signing certificates and notarization credentials in encrypted CI secrets, never in the repository.
+
+## License boundary
+
+This repository's original code is licensed under the MIT License. The MIT License does not grant rights to Sikarugir, Wine, D3DMetal, Steam, or any game. Do not include a completed `Steam.app`, the Steam client, games, or Sikarugir engine and template archives in a release. See [THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md) for details.
