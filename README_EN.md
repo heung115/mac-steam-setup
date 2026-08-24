@@ -8,7 +8,7 @@
 
 **Install and run Windows Steam and Windows-only games more easily on Apple Silicon Macs.** Mac Steam Setup turns the Sikarugir/Wine setup into a simple Mac app.
 
-[Download DMG beta](https://github.com/heung115/mac-steam-setup/releases/download/v0.10-beta.2/Mac-Steam-Setup-v0.10-beta.2.dmg) · [Share feedback](https://github.com/heung115/mac-steam-setup/discussions) · [Report a bug or game](https://github.com/heung115/mac-steam-setup/issues/new/choose)
+[Download DMG beta](https://github.com/heung115/mac-steam-setup/releases/download/v0.11-beta.1/Mac-Steam-Setup-v0.11-beta.1.dmg) · [Share feedback](https://github.com/heung115/mac-steam-setup/discussions) · [Report a bug or game](https://github.com/heung115/mac-steam-setup/issues/new/choose)
 
 [![CI](https://github.com/heung115/mac-steam-setup/actions/workflows/ci.yml/badge.svg)](https://github.com/heung115/mac-steam-setup/actions/workflows/ci.yml) ![macOS 14+](https://img.shields.io/badge/macOS-14%2B-black) ![Apple Silicon](https://img.shields.io/badge/Apple%20Silicon-required-black) [![MIT License](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
 
@@ -32,7 +32,7 @@ This is an independent, unofficial community project. It is not affiliated with,
 
 ### Download the beta app
 
-> Recommended download: [Mac Steam Setup v0.10-beta.2 DMG](https://github.com/heung115/mac-steam-setup/releases/download/v0.10-beta.2/Mac-Steam-Setup-v0.10-beta.2.dmg)
+> Recommended download: [Mac Steam Setup v0.11-beta.1 DMG](https://github.com/heung115/mac-steam-setup/releases/download/v0.11-beta.1/Mac-Steam-Setup-v0.11-beta.1.dmg)
 
 1. Download the DMG from the link above. Other versions and the fallback ZIP are available on [GitHub Releases](https://github.com/heung115/mac-steam-setup/releases).
 2. Open the DMG and drag `Mac Steam Setup.app` onto the `Applications` folder shown beside it.
