@@ -100,7 +100,8 @@ wrapper_has_named_process() {
 }
 
 steam_client_is_running() {
-  wrapper_has_named_process Steam.exe steamwebhelper steamservice
+  wrapper_has_named_process Steam.exe steamwebhelper steamservice \
+    || [[ -n "$(steam_process_pids)" ]]
 }
 
 steam_runtime_is_running() {

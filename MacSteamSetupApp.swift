@@ -579,33 +579,43 @@ struct ManagementView: View {
                     .background(.quaternary.opacity(0.35), in: RoundedRectangle(cornerRadius: 14))
                 }
 
-                Button(action: model.primaryAction) {
-                    Text(model.primaryTitle)
-                        .frame(maxWidth: .infinity)
-                        .padding(.vertical, 6)
+                if model.state != .ready {
+                    Button(action: model.primaryAction) {
+                        Text(model.primaryTitle)
+                            .frame(maxWidth: .infinity)
+                            .padding(.vertical, 6)
+                    }
+                    .buttonStyle(.borderedProminent)
+                    .controlSize(.large)
+                    .disabled(model.isBusy)
                 }
-                .buttonStyle(.borderedProminent)
-                .controlSize(.large)
-                .disabled(model.isBusy || (model.state == .ready && model.isSteamRunning))
 
                 if model.state == .ready {
                     GroupBox("관리 도구") {
                         VStack(spacing: 0) {
+                            ManagementRow(
+                                title: "Windows Steam",
+                                detail: model.isSteamRunning
+                                    ? "Steam과 실행 중인 Windows 게임을 모두 종료합니다."
+                                    : "설치된 Windows Steam을 시작합니다.",
+                                icon: model.isSteamRunning ? "power" : "play.fill",
+                                actionTitle: model.isSteamRunning ? "종료" : "열기",
+                                isDisabled: model.isBusy,
+                                action: {
+                                    if model.isSteamRunning {
+                                        confirmStop()
+                                    } else {
+                                        model.openSteam()
+                                    }
+                                }
+                            )
+                            Divider().padding(.leading, 42)
                             ManagementRow(
                                 title: "로그인 화면 복구",
                                 detail: "로그인 창이 비어 있거나 깨졌을 때 임시 데이터를 초기화합니다.",
                                 icon: "wrench.and.screwdriver",
                                 actionTitle: "복구",
                                 action: model.repairSteamUI
-                            )
-                            Divider().padding(.leading, 42)
-                            ManagementRow(
-                                title: "Windows Steam 완전 종료",
-                                detail: "Steam과 게임을 모두 종료합니다. 다음 시작은 로그인 연결 때문에 최대 1분 걸릴 수 있습니다.",
-                                icon: "power",
-                                actionTitle: "종료",
-                                isDisabled: model.isBusy || !model.isSteamRunning,
-                                action: confirmStop
                             )
                         }
                         .padding(.vertical, 4)
