@@ -22,7 +22,7 @@ Apple Silicon Mac에서 Windows Steam 환경을 Sikarugir 방식으로 준비하
 
 생성된 `build/Mac Steam Setup.app`을 열고 `Windows Steam 준비하기`를 누릅니다. Steam 설치창에서는 기본 경로로 설치 완료까지 진행하면 됩니다. 마지막의 Steam 실행 여부와 관계없이 설치 도우미가 첫 실행을 정리하고 최종 설정으로 넘어갑니다.
 
-Steam은 업데이트 확인에 약 1분이 걸릴 수 있습니다. Wine 초기 updater가 한국어 글꼴을 표시하지 못하므로 Steam 언어는 영어 기본값으로 준비합니다. Steam 설정에서 한국어로 바꿀 수 있지만 이후 updater의 한글이 네모로 보일 수 있습니다.
+Steam은 네트워크 환경에 따라 초기 연결 검사에 약 1분이 걸릴 수 있습니다. 정상적인 빠른 실행에서도 IPv6 검사 `TIMEOUT`이 기록될 수 있으므로 이 문구만으로 오류를 판단하지 않습니다. 재현 조건과 후속 조사 절차는 [Windows Steam 시작 지연 조사 기록](docs/diagnostics/steam-startup-network-delay.md)에 정리했습니다. Wine 초기 updater가 한국어 글꼴을 표시하지 못하므로 Steam 언어는 영어 기본값으로 준비합니다. Steam 설정에서 한국어로 바꿀 수 있지만 이후 updater의 한글이 네모로 보일 수 있습니다.
 
 게임 설치 후 `게임 바로가기`에서 Mac 앱을 만들 수 있습니다. 바로가기는 Wine 환경이나 게임 파일을 복제하지 않으며, Steam을 백그라운드로 시작한 다음 해당 App ID를 실행합니다. Steam DRM을 사용하는 게임은 Steam 프로세스 자체를 생략할 수 없습니다.
 
