@@ -25,13 +25,16 @@ TEMPLATE_URL="https://github.com/Sikarugir-App/Wrapper/releases/download/v1.0/${
 STEAM_SETUP="$HOME/Applications/Sikarugir/SteamSetup.exe"
 STEAM_URL="https://cdn.akamai.steamstatic.com/client/installer/SteamSetup.exe"
 STEAM_EXE="$WRAPPER/Contents/drive_c/Program Files (x86)/Steam/steam.exe"
+STEAM_CLIENT_DLL="$WRAPPER/Contents/drive_c/Program Files (x86)/Steam/steamclient.dll"
 PLIST="$WRAPPER/Contents/Info.plist"
 OWNER_MARKER="$WRAPPER/Contents/.macsteamsetup-owner"
 HTML_CACHE="$WRAPPER/Contents/drive_c/users/$USER/AppData/Local/Steam/htmlcache"
+PREFIX_ROOT="$WRAPPER/Contents/SharedSupport/prefix"
 LOCK_DIR="$APP_CACHE/setup.lock"
 STEAMAPPS="$WRAPPER/Contents/drive_c/Program Files (x86)/Steam/steamapps"
 LIBRARY_CACHE="$WRAPPER/Contents/drive_c/Program Files (x86)/Steam/appcache/librarycache"
 GAME_SHORTCUTS_DIR="$HOME/Applications/Windows Steam Games"
+SHORTCUT_OWNER_TEXT="MacSteamSetup game shortcut owner v1"
 
 progress() { printf '@@PROGRESS|%s|%s\n' "$1" "${2:-}"; }
 phase() {
@@ -108,6 +111,18 @@ steam_ui_is_running() {
   wrapper_has_named_process steamwebhelper
 }
 
+shortcut_is_owned() {
+  local shortcut="$1"
+  local app_id="$2"
+  local marker="$shortcut/Contents/.macsteamsetup-shortcut-owner"
+  local plist="$shortcut/Contents/Info.plist"
+  [[ -f "$marker" && "$(<"$marker")" == "$SHORTCUT_OWNER_TEXT" ]] && return 0
+  [[ -f "$plist" && -x "$shortcut/Contents/MacOS/GameLauncher" ]] || return 1
+  [[ "$(/usr/bin/plutil -extract CFBundleIdentifier raw "$plist" 2>/dev/null || true)" \
+      == "local.macsteam.game.${app_id}" ]] || return 1
+  [[ "$(/usr/bin/plutil -extract SteamAppID raw "$plist" 2>/dev/null || true)" == "$app_id" ]]
+}
+
 terminate_orphaned_steam_processes() {
   local pids pid
   pids="$(steam_process_pids)"
@@ -176,6 +191,19 @@ steam_installer_is_running() {
   '
 }
 
+steam_install_is_complete() {
+  [[ -f "$STEAM_EXE" && -f "$STEAM_CLIENT_DLL" ]]
+}
+
+steam_setup_is_valid() {
+  local installer="$1"
+  local size
+  [[ -f "$installer" && ! -L "$installer" ]] || return 1
+  size="$(/usr/bin/stat -f %z "$installer" 2>/dev/null || printf '0')"
+  (( size >= 1048576 )) || return 1
+  /usr/bin/file "$installer" | /usr/bin/grep -Eq 'PE32(\+)? executable'
+}
+
 configure_steam_english() {
   local wine="$WRAPPER/Contents/SharedSupport/wine/bin/wine"
   local prefix="$WRAPPER/Contents/SharedSupport/prefix"
@@ -214,7 +242,7 @@ is_configured() {
 }
 
 check_state() {
-  if [[ -f "$STEAM_EXE" ]] && is_configured; then
+  if steam_install_is_complete && is_configured; then
     if steam_runtime_is_running; then
       printf '@@STATE|running\n'
     else
@@ -242,10 +270,11 @@ if [[ "${1:-setup}" == "check" ]]; then
 fi
 
 if [[ "${1:-setup}" == "launch" ]]; then
-  [[ -f "$OWNER_MARKER" && -x "$WRAPPER/Contents/MacOS/Sikarugir" && -f "$STEAM_EXE" && -f "$PLIST" ]] \
+  [[ -f "$OWNER_MARKER" && -x "$WRAPPER/Contents/MacOS/Sikarugir" \
+      && -f "$STEAM_EXE" && -f "$STEAM_CLIENT_DLL" && -f "$PLIST" ]] \
     || fail "설치된 Windows Steam을 찾을 수 없습니다"
   configure_wrapper_plist "$PLIST"
-  if steam_is_running; then
+  if steam_runtime_is_running; then
     if steam_ui_is_running; then
       open_steam_main || fail "Steam 창을 다시 열지 못했습니다"
       printf '@@STATE|running\n'
@@ -279,9 +308,11 @@ if [[ "${1:-setup}" == "list-games" ]]; then
     while IFS= read -r manifest; do
       game="$(read_appmanifest "$manifest" 2>/dev/null || true)"
       [[ -n "$game" ]] || continue
-      IFS='|' read -r app_id game_name install_dir <<< "$game"
+      IFS='|' read -r app_id encoded_name encoded_install_dir <<< "$game"
+      [[ "$app_id" =~ ^[0-9]+$ ]] || continue
       icon_path="$(find_game_icon "$LIBRARY_CACHE" "$app_id" 2>/dev/null || true)"
-      printf '@@GAME|%s|%s|%s|%s\n' "$app_id" "$game_name" "$install_dir" "$icon_path"
+      printf '@@GAME64|%s|%s|%s|%s\n' \
+        "$app_id" "$encoded_name" "$encoded_install_dir" "$(protocol_encode "$icon_path")"
       found=1
     done < <(/usr/bin/find "$STEAMAPPS" -maxdepth 1 -type f -name 'appmanifest_*.acf' -print | /usr/bin/sort)
   fi
@@ -295,12 +326,18 @@ if [[ "${1:-setup}" == "create-shortcut" ]]; then
   manifest="$STEAMAPPS/appmanifest_${app_id}.acf"
   [[ -f "$manifest" ]] || fail "설치된 게임 정보를 찾을 수 없습니다"
   game="$(read_appmanifest "$manifest")" || fail "게임 정보를 읽지 못했습니다"
-  IFS='|' read -r parsed_id game_name install_dir <<< "$game"
+  IFS='|' read -r parsed_id encoded_name encoded_install_dir <<< "$game"
   [[ "$parsed_id" == "$app_id" ]] || fail "게임 ID가 설치 정보와 일치하지 않습니다"
-  safe_name="$(printf '%s' "$game_name" | /usr/bin/tr '/:' '--')"
+  game_name="$(protocol_decode "$encoded_name")" || fail "게임 이름을 읽지 못했습니다"
+  install_dir="$(protocol_decode "$encoded_install_dir")" || fail "게임 설치 정보를 읽지 못했습니다"
+  safe_name="$(printf '%s' "$game_name" | /usr/bin/tr '/:\r\n\t' '-----')"
   shortcut="$GAME_SHORTCUTS_DIR/${safe_name}.app"
   [[ ! -L "$shortcut" ]] || fail "게임 바로가기 위치가 안전하지 않습니다"
+  if [[ -e "$shortcut" ]] && ! shortcut_is_owned "$shortcut" "$app_id"; then
+    fail "같은 이름의 기존 파일이 있어 덮어쓰지 않았습니다: ${safe_name}.app"
+  fi
   /bin/mkdir -p "$shortcut/Contents/MacOS" "$shortcut/Contents/Resources"
+  printf '%s\n' "$SHORTCUT_OWNER_TEXT" > "$shortcut/Contents/.macsteamsetup-shortcut-owner"
   /usr/bin/ditto "$SCRIPT_DIR/game_launcher.sh" "$shortcut/Contents/MacOS/GameLauncher"
   /bin/chmod +x "$shortcut/Contents/MacOS/GameLauncher"
   /usr/bin/sed "s/__STEAM_APP_ID__/$app_id/g" \
@@ -334,9 +371,15 @@ if [[ "${1:-setup}" == "repair" ]]; then
   message "Steam 로그인 화면용 임시 데이터를 초기화하고 있습니다"
   [[ -f "$OWNER_MARKER" && -x "$WRAPPER/Contents/MacOS/Sikarugir" ]] \
     || fail "이 설치 앱이 만든 Windows Steam을 찾을 수 없습니다"
-  [[ ! -L "$HTML_CACHE" ]] || fail "Steam 임시 데이터 위치가 안전하지 않습니다"
+  if [[ -e "$HTML_CACHE" || -L "$HTML_CACHE" ]]; then
+    [[ ! -L "$HTML_CACHE" ]] \
+      && path_parent_resolves_within "$PREFIX_ROOT" "$HTML_CACHE" \
+      || fail "Steam 임시 데이터 위치가 Wine 실행 공간 밖을 가리켜 중단했습니다"
+  fi
   "$WRAPPER/Contents/MacOS/Sikarugir" WSS-wineserverkill >/dev/null 2>&1 || true
-  /bin/rm -rf "$HTML_CACHE"
+  if [[ -e "$HTML_CACHE" ]]; then
+    /bin/rm -rf "$HTML_CACHE"
+  fi
   open_wrapper
   progress 100 repairing
   printf '@@STATE|ready\n'
@@ -364,7 +407,7 @@ FREE_GB="$(df -g "$HOME" | awk 'NR==2 {print $4}')"
 
 phase "downloading"
 message "Sikarugir 공식 실행 엔진과 앱 틀을 내려받고 있습니다"
-mkdir -p "$CACHE/Engines" "$CACHE/Template" "$APP_CACHE/template" "$HOME/Applications/Sikarugir"
+mkdir -p "$CACHE/Engines" "$CACHE/Template" "$APP_CACHE" "$HOME/Applications/Sikarugir"
 
 fetch() {
   local url="$1"
@@ -418,14 +461,9 @@ if [[ -d "$WRAPPER" && ! -f "$OWNER_MARKER" ]]; then
   fail "기존 Steam.app은 이 설치 앱이 만든 것으로 확인되지 않아 변경하지 않았습니다"
 fi
 if [[ ! -d "$WRAPPER" ]]; then
-  if [[ ! -d "$APP_CACHE/template/${TEMPLATE}.app" ]]; then
-    /usr/bin/tar -xf "$TEMPLATE_ARCHIVE" -C "$APP_CACHE/template"
-  fi
-  /usr/bin/ditto "$APP_CACHE/template/${TEMPLATE}.app" "$WRAPPER"
-  /usr/bin/tar -xf "$ENGINE_ARCHIVE" -C "$WRAPPER/Contents/SharedSupport"
-  [[ -d "$WRAPPER/Contents/SharedSupport/wswine.bundle" ]] || fail "Wine 엔진 구조를 확인할 수 없습니다"
-  /bin/mv "$WRAPPER/Contents/SharedSupport/wswine.bundle" "$WRAPPER/Contents/SharedSupport/wine"
-  printf 'MacSteamSetup prototype owner v1\n' > "$OWNER_MARKER"
+  install_wrapper_atomically \
+    "$TEMPLATE_ARCHIVE" "$ENGINE_ARCHIVE" "$TEMPLATE" "$WRAPPER" "$APP_CACHE" \
+    || fail "Windows Steam 앱을 안전하게 생성하지 못했습니다"
 fi
 progress 55 wrapper
 
@@ -443,13 +481,15 @@ progress 70 windows
 
 phase "steam"
 message "Windows Steam 설치 창이 열리면 기본 설정으로 설치해 주세요"
-if [[ ! -f "$STEAM_EXE" ]]; then
-  if [[ ! -s "$STEAM_SETUP" ]]; then
+if ! steam_install_is_complete; then
+  [[ ! -L "$STEAM_SETUP" ]] || fail "Steam 설치 파일 위치가 심볼릭 링크라 중단했습니다"
+  [[ ! -d "$STEAM_SETUP" ]] || fail "Steam 설치 파일 위치가 폴더라 중단했습니다"
+  if ! steam_setup_is_valid "$STEAM_SETUP"; then
     partial_setup="$(/usr/bin/mktemp "${STEAM_SETUP}.part.XXXXXX")"
     /usr/bin/curl --fail --location --retry 3 --silent --show-error --output "$partial_setup" "$STEAM_URL"
+    steam_setup_is_valid "$partial_setup" || fail "새로 받은 Steam 설치 파일 검증에 실패했습니다"
     /bin/mv "$partial_setup" "$STEAM_SETUP"
   fi
-  /usr/bin/file "$STEAM_SETUP" | /usr/bin/grep -q 'PE32 executable' || fail "Steam 설치 파일 검증에 실패했습니다"
   printf '@@ACTION|steam_installer\n'
   "$LAUNCHER" WSS-installer "$STEAM_SETUP" &
   installer_launcher_pid=$!
@@ -457,7 +497,7 @@ if [[ ! -f "$STEAM_EXE" ]]; then
   while /bin/kill -0 "$installer_launcher_pid" 2>/dev/null; do
     steam_exists=0
     installer_running=0
-    [[ -f "$STEAM_EXE" ]] && steam_exists=1
+    steam_install_is_complete && steam_exists=1
     steam_installer_is_running && installer_running=1
     if [[ "$(installer_decision "$steam_exists" "$installer_running")" == "finish" ]]; then
       progress 88 steam
@@ -476,7 +516,8 @@ if [[ ! -f "$STEAM_EXE" ]]; then
     /bin/kill -TERM "$installer_launcher_pid" 2>/dev/null || true
   fi
   wait "$installer_launcher_pid" 2>/dev/null || true
-  [[ -f "$STEAM_EXE" ]] || fail "Steam 설치를 완료하지 못했습니다. 설치 경로는 기본값을 사용해 주세요"
+  steam_install_is_complete \
+    || fail "Steam 설치를 완료하지 못했습니다. 설치 경로는 기본값을 사용해 주세요"
 fi
 
 phase "configuring"

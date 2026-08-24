@@ -40,7 +40,11 @@ plist_set() {
   local key="$2"
   local type="$3"
   local value="$4"
-  if /usr/bin/plutil -extract "$key" raw "$plist" >/dev/null 2>&1; then
+  local current
+  if current="$(/usr/bin/plutil -extract "$key" raw "$plist" 2>/dev/null)"; then
+    if [[ "$current" == "$value" ]]; then
+      return 0
+    fi
     /usr/bin/plutil -replace "$key" "-$type" "$value" "$plist"
   else
     /usr/bin/plutil -insert "$key" "-$type" "$value" "$plist"
@@ -70,7 +74,62 @@ read_appmanifest() {
   name="$(acf_value "$manifest" name)"
   install_dir="$(acf_value "$manifest" installdir)"
   [[ -n "$app_id" && -n "$name" ]] || return 1
-  printf '%s|%s|%s\n' "$app_id" "$name" "$install_dir"
+  printf '%s|%s|%s\n' "$app_id" "$(protocol_encode "$name")" "$(protocol_encode "$install_dir")"
+}
+
+protocol_encode() {
+  printf '%s' "$1" | /usr/bin/base64 | /usr/bin/tr -d '\r\n'
+}
+
+protocol_decode() {
+  printf '%s' "$1" | /usr/bin/base64 -D
+}
+
+path_parent_resolves_within() {
+  local root="$1"
+  local target="$2"
+  local root_path parent_path
+  [[ -d "$root" ]] || return 1
+  parent_path="${target%/*}"
+  [[ -d "$parent_path" ]] || return 1
+  root_path="$(cd "$root" && pwd -P)" || return 1
+  parent_path="$(cd "$parent_path" && pwd -P)" || return 1
+  [[ "$parent_path" == "$root_path" || "$parent_path" == "$root_path/"* ]]
+}
+
+install_wrapper_atomically() {
+  local template_archive="$1"
+  local engine_archive="$2"
+  local template_name="$3"
+  local wrapper="$4"
+  local work_root="$5"
+  local stage staged_wrapper
+
+  [[ ! -e "$wrapper" && ! -L "$wrapper" ]] || return 1
+  /bin/mkdir -p "$work_root" || return 1
+  stage="$(/usr/bin/mktemp -d "$work_root/wrapper.XXXXXX")" || return 1
+  staged_wrapper="$stage/${template_name}.app"
+
+  if ! /usr/bin/tar -xf "$template_archive" -C "$stage" \
+    || [[ ! -d "$staged_wrapper/Contents/SharedSupport" ]] \
+    || ! /usr/bin/tar -xf "$engine_archive" -C "$staged_wrapper/Contents/SharedSupport" \
+    || [[ ! -d "$staged_wrapper/Contents/SharedSupport/wswine.bundle" ]] \
+    || ! /bin/mv "$staged_wrapper/Contents/SharedSupport/wswine.bundle" \
+      "$staged_wrapper/Contents/SharedSupport/wine"; then
+    /bin/rm -rf "$stage"
+    return 1
+  fi
+
+  printf 'MacSteamSetup prototype owner v1\n' > \
+    "$staged_wrapper/Contents/.macsteamsetup-owner" || {
+      /bin/rm -rf "$stage"
+      return 1
+    }
+  if [[ -e "$wrapper" || -L "$wrapper" ]] || ! /bin/mv "$staged_wrapper" "$wrapper"; then
+    /bin/rm -rf "$stage"
+    return 1
+  fi
+  /bin/rmdir "$stage" 2>/dev/null || true
 }
 
 find_game_icon() {

@@ -182,8 +182,13 @@ final class InstallerModel: ObservableObject {
         }
 
         task.terminationHandler = { [weak self] finished in
+            pipe.fileHandleForReading.readabilityHandler = nil
+            let remainingData = pipe.fileHandleForReading.readDataToEndOfFile()
+            let remainingText = String(data: remainingData, encoding: .utf8) ?? ""
             DispatchQueue.main.async {
-                pipe.fileHandleForReading.readabilityHandler = nil
+                if !remainingText.isEmpty {
+                    self?.consumeChunk(remainingText)
+                }
                 if self?.pendingOutput.isEmpty == false {
                     self?.consumeLine(self?.pendingOutput ?? "")
                     self?.pendingOutput = ""
@@ -200,10 +205,13 @@ final class InstallerModel: ObservableObject {
             }
         }
 
+        process = task
         do {
             try task.run()
-            process = task
         } catch {
+            pipe.fileHandleForReading.readabilityHandler = nil
+            process = nil
+            operationInProgress = false
             state = .failed
             message = error.localizedDescription
         }
@@ -252,14 +260,16 @@ final class InstallerModel: ObservableObject {
                let total = Int64(parts[3]) {
                 transferText = formatTransfer(label: String(parts[1]), current: current, total: total)
             }
-        } else if value.hasPrefix("@@GAME|") {
+        } else if value.hasPrefix("@@GAME64|") {
             let parts = value.split(separator: "|", maxSplits: 4, omittingEmptySubsequences: false)
-            if parts.count >= 4 {
-                let rawIconPath = parts.count == 5 ? String(parts[4]) : ""
+            if parts.count == 5,
+               let name = decodeProtocolField(parts[2]),
+               let installDirectory = decodeProtocolField(parts[3]),
+               let rawIconPath = decodeProtocolField(parts[4]) {
                 let game = SteamGame(
                     id: String(parts[1]),
-                    name: String(parts[2]),
-                    installDirectory: String(parts[3]),
+                    name: name,
+                    installDirectory: installDirectory,
                     iconPath: rawIconPath.isEmpty ? nil : rawIconPath
                 )
                 if !games.contains(game) {
@@ -291,6 +301,11 @@ final class InstallerModel: ObservableObject {
             needsUserAction = true
             message = "Steam 설치 창에서 설치 완료까지 진행해 주세요. Steam 실행 여부는 상관없습니다"
         }
+    }
+
+    private func decodeProtocolField(_ value: Substring) -> String? {
+        guard let data = Data(base64Encoded: String(value)) else { return nil }
+        return String(data: data, encoding: .utf8)
     }
 
     private func formatTransfer(label: String, current: Int64, total: Int64) -> String {
