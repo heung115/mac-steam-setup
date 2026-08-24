@@ -58,7 +58,7 @@ final class InstallerModel: ObservableObject {
         case .notInstalled: return "설치 준비 완료"
         case .partial: return "이어서 설치할 수 있어요"
         case .installing: return phase
-        case .ready: return "설치는 완료됐어요"
+        case .ready: return "Windows Steam 준비됨"
         case .failed: return "설치를 마치지 못했어요"
         }
     }
