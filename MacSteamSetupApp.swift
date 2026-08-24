@@ -35,6 +35,7 @@ final class InstallerModel: ObservableObject {
     private var pendingOutput = ""
     private var statusTimer: AnyCancellable?
     private var requestedLocalizedNames: Set<String> = []
+    private var pendingGames: [SteamGame]?
 
     var isBusy: Bool { state == .checking || state == .installing || operationInProgress }
 
@@ -78,9 +79,9 @@ final class InstallerModel: ObservableObject {
     func refresh() { run(mode: "check") }
 
     func openSteam() {
-        // Bringing an already-running client forward is an instant operation and
-        // should not temporarily replace the library with the installation UI.
-        run(mode: "launch", changesMainState: !isSteamRunning)
+        // Starting or foregrounding Steam is a runtime operation. Keep the
+        // installed-game library visible instead of showing installation UI.
+        run(mode: "launch", changesMainState: false)
     }
 
     func openInstallFolder() {
@@ -136,7 +137,8 @@ final class InstallerModel: ObservableObject {
     }
 
     func loadGames() {
-        games = []
+        guard process == nil else { return }
+        pendingGames = []
         shortcutMessage = ""
         run(mode: "list-games", changesMainState: false)
     }
@@ -149,7 +151,8 @@ final class InstallerModel: ObservableObject {
     private func run(mode: String, arguments: [String] = [], changesMainState: Bool = true) {
         guard process == nil else { return }
         guard let script = Bundle.main.path(forResource: "setup", ofType: "sh") else {
-            state = .failed
+            if mode == "list-games" { pendingGames = nil }
+            if changesMainState { state = .failed }
             message = "앱 내부 설치 파일을 찾을 수 없습니다"
             return
         }
@@ -195,6 +198,12 @@ final class InstallerModel: ObservableObject {
                 }
                 self?.process = nil
                 self?.operationInProgress = false
+                if mode == "list-games" {
+                    if finished.terminationStatus == 0, let loadedGames = self?.pendingGames {
+                        self?.games = loadedGames
+                    }
+                    self?.pendingGames = nil
+                }
                 if finished.terminationStatus != 0 {
                     if changesMainState { self?.state = .failed }
                     if self?.message.isEmpty == true { self?.message = "자세한 내용은 설치 기록에서 확인할 수 있습니다" }
@@ -212,7 +221,8 @@ final class InstallerModel: ObservableObject {
             pipe.fileHandleForReading.readabilityHandler = nil
             process = nil
             operationInProgress = false
-            state = .failed
+            if mode == "list-games" { pendingGames = nil }
+            if changesMainState { state = .failed }
             message = error.localizedDescription
         }
     }
@@ -272,7 +282,10 @@ final class InstallerModel: ObservableObject {
                     installDirectory: installDirectory,
                     iconPath: rawIconPath.isEmpty ? nil : rawIconPath
                 )
-                if !games.contains(game) {
+                if pendingGames != nil, pendingGames?.contains(game) == false {
+                    pendingGames?.append(game)
+                    fetchLocalizedName(for: game)
+                } else if pendingGames == nil, !games.contains(game) {
                     games.append(game)
                     fetchLocalizedName(for: game)
                 }
