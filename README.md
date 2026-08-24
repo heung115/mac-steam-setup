@@ -8,7 +8,7 @@
 
 **Apple Silicon Mac에서 Windows Steam과 Windows 전용 게임을 더 쉽게 설치하고 실행하는 도구입니다.** Sikarugir/Wine 방식을 간단한 Mac 앱으로 준비합니다.
 
-[베타 다운로드](https://github.com/heung115/mac-steam-setup/releases) · [의견 나누기](https://github.com/heung115/mac-steam-setup/discussions) · [버그·게임 호환성 제보](https://github.com/heung115/mac-steam-setup/issues/new/choose)
+[DMG 베타 다운로드](https://github.com/heung115/mac-steam-setup/releases/download/v0.10-beta.2/Mac-Steam-Setup-v0.10-beta.2.dmg) · [의견 나누기](https://github.com/heung115/mac-steam-setup/discussions) · [버그·게임 호환성 제보](https://github.com/heung115/mac-steam-setup/issues/new/choose)
 
 [![CI](https://github.com/heung115/mac-steam-setup/actions/workflows/ci.yml/badge.svg)](https://github.com/heung115/mac-steam-setup/actions/workflows/ci.yml) ![macOS 14+](https://img.shields.io/badge/macOS-14%2B-black) ![Apple Silicon](https://img.shields.io/badge/Apple%20Silicon-required-black) [![MIT License](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
 
@@ -32,7 +32,9 @@
 
 ### 베타 앱 다운로드
 
-1. [GitHub Releases](https://github.com/heung115/mac-steam-setup/releases)에서 최신 `Mac-Steam-Setup-*.dmg`를 받습니다.
+> 권장 다운로드: [Mac Steam Setup v0.10-beta.2 DMG](https://github.com/heung115/mac-steam-setup/releases/download/v0.10-beta.2/Mac-Steam-Setup-v0.10-beta.2.dmg)
+
+1. 위 링크에서 DMG를 받습니다. 다른 버전과 대체 ZIP은 [GitHub Releases](https://github.com/heung115/mac-steam-setup/releases)에서 확인할 수 있습니다.
 2. DMG를 열고 `Mac Steam Setup.app`을 함께 보이는 `Applications` 폴더로 드래그합니다.
 3. 첫 실행은 앱을 우클릭(또는 Control-클릭)하고 `열기`를 선택합니다.
 4. macOS가 계속 차단하면 앱을 한 번 실행해 본 뒤 `시스템 설정 → 개인정보 보호 및 보안 → 그래도 열기`를 선택합니다. 한 번 승인하면 이후에는 평소처럼 더블클릭할 수 있습니다.
