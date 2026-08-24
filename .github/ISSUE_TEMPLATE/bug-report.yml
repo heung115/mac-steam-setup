@@ -1,0 +1,83 @@
+name: Bug report / 버그 신고
+description: Report an installation, launch, shutdown, or shortcut problem. / 설치·실행·종료·바로가기 문제를 알려주세요.
+title: "[Bug] "
+labels:
+  - bug
+  - needs-triage
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thanks for helping improve Mac Steam Setup. 한국어와 English 모두 괜찮습니다.
+
+  - type: input
+    id: version
+    attributes:
+      label: Mac Steam Setup version / 앱 버전
+      placeholder: v0.10-beta.1
+    validations:
+      required: true
+
+  - type: input
+    id: mac
+    attributes:
+      label: Mac model and chip / Mac 모델과 칩
+      placeholder: MacBook Pro 14-inch, M4 Pro
+    validations:
+      required: true
+
+  - type: input
+    id: macos
+    attributes:
+      label: macOS version / macOS 버전
+      placeholder: macOS 26.6.2
+    validations:
+      required: true
+
+  - type: dropdown
+    id: area
+    attributes:
+      label: Where did it fail? / 문제가 발생한 단계
+      options:
+        - Initial setup / 최초 설치
+        - Opening Windows Steam / Windows Steam 실행
+        - Closing Windows Steam / Windows Steam 종료
+        - Login window / 로그인 화면
+        - Game shortcut / 게임 바로가기
+        - Game launch / 게임 실행
+        - Other / 기타
+    validations:
+      required: true
+
+  - type: textarea
+    id: happened
+    attributes:
+      label: What happened? / 어떤 문제가 발생했나요?
+      description: Include the exact message and what you expected instead. / 표시된 문구와 기대한 동작을 적어주세요.
+    validations:
+      required: true
+
+  - type: textarea
+    id: steps
+    attributes:
+      label: Steps to reproduce / 재현 방법
+      placeholder: |
+        1. Opened ...
+        2. Clicked ...
+        3. The app ...
+    validations:
+      required: true
+
+  - type: textarea
+    id: logs
+    attributes:
+      label: Relevant log or screenshot / 관련 기록 또는 화면
+      description: Optional. Remove account names, emails, and local paths first. / 선택 사항입니다. 계정명, 이메일, 로컬 경로 등 개인정보를 먼저 지워주세요.
+
+  - type: checkboxes
+    id: privacy
+    attributes:
+      label: Privacy check / 개인정보 확인
+      options:
+        - label: I checked that attached material contains no private or secret information. / 첨부 자료에 개인정보나 비밀값이 없는지 확인했습니다.
+          required: true

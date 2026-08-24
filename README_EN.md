@@ -2,7 +2,17 @@
 
 [한국어](README.md) | [English](README_EN.md)
 
-Mac Steam Setup is a non-commercial prototype that prepares a Windows Steam environment on Apple Silicon Macs using the Sikarugir approach. It does not bundle its own Wine build or Steam. Instead, it downloads pinned official Sikarugir engine and wrapper releases and Valve's Steam installer when the user starts setup.
+<p align="center">
+  <img src="Assets/AppIcon.png" width="128" alt="Mac Steam Setup icon">
+</p>
+
+**Install and run Windows Steam and Windows-only games more easily on Apple Silicon Macs.** Mac Steam Setup turns the Sikarugir/Wine setup into a simple Mac app.
+
+[Download beta](https://github.com/heung115/mac-steam-setup/releases) · [Share feedback](https://github.com/heung115/mac-steam-setup/discussions) · [Report a bug or game](https://github.com/heung115/mac-steam-setup/issues/new/choose)
+
+[![CI](https://github.com/heung115/mac-steam-setup/actions/workflows/ci.yml/badge.svg)](https://github.com/heung115/mac-steam-setup/actions/workflows/ci.yml) ![macOS 14+](https://img.shields.io/badge/macOS-14%2B-black) ![Apple Silicon](https://img.shields.io/badge/Apple%20Silicon-required-black) [![MIT License](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
+
+Mac Steam Setup is a non-commercial open-source prototype. It does not bundle its own Wine build or Steam. Instead, it downloads pinned official Sikarugir engine and wrapper releases and Valve's Steam installer when the user starts setup.
 
 This is an independent, unofficial community project. It is not affiliated with, endorsed by, sponsored by, or approved by Valve Corporation, Apple Inc., or the Sikarugir project. Steam and the Steam logo are trademarks and/or registered trademarks of Valve Corporation. This project does not use the Steam logo or Valve's official design assets.
 
@@ -59,6 +69,16 @@ The following checks were completed on a Mac running macOS 26.6.2 with an M4 Pro
 - Restart after completely terminating all Windows Steam processes
 
 Game compatibility and anti-cheat support vary by title.
+
+## Feedback and game compatibility reports
+
+Reports from real users are the most useful way to improve the project.
+
+- Experiences, questions, and ideas: [GitHub Discussions](https://github.com/heung115/mac-steam-setup/discussions)
+- Installation or launch problems: [bug report form](https://github.com/heung115/mac-steam-setup/issues/new?template=bug-report.yml)
+- A Windows game you tested: [game compatibility form](https://github.com/heung115/mac-steam-setup/issues/new?template=game-compatibility.yml)
+
+Successful games are worth reporting too. Before attaching a log or screenshot, remove account names, email addresses, local file paths, and any other personal information.
 
 ## Binary distribution
 

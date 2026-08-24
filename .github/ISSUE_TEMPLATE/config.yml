@@ -1,0 +1,5 @@
+blank_issues_enabled: false
+contact_links:
+  - name: Questions, ideas, and general feedback / 질문, 아이디어, 사용 후기
+    url: https://github.com/heung115/mac-steam-setup/discussions
+    about: Start an open conversation in GitHub Discussions. / GitHub Discussions에서 자유롭게 이야기해 주세요.
