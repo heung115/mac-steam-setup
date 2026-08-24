@@ -29,6 +29,7 @@ final class InstallerModel: ObservableObject {
     @Published var games: [SteamGame] = []
     @Published var localizedGameNames: [String: String] = [:]
     @Published var shortcutMessage = ""
+    @Published private(set) var runtimeStatusTitle: String?
 
     private var process: Process?
     private var runtimeProcess: Process?
@@ -50,6 +51,7 @@ final class InstallerModel: ObservableObject {
     }
 
     var statusTitle: String {
+        if state == .ready, let runtimeStatusTitle { return runtimeStatusTitle }
         if state == .ready && isSteamRunning { return "Windows Steam 실행 중" }
         switch state {
         case .checking: return "설치 상태 확인 중"
@@ -91,11 +93,11 @@ final class InstallerModel: ObservableObject {
     }
 
     func repairSteamUI() {
-        run(mode: "repair")
+        run(mode: "repair", changesMainState: false)
     }
 
     func stopSteam() {
-        run(mode: "stop")
+        run(mode: "stop", changesMainState: false)
     }
 
     private func refreshRuntimeStatus() {
@@ -162,6 +164,7 @@ final class InstallerModel: ObservableObject {
         } else if changesMainState {
             state = .installing
         }
+        runtimeStatusTitle = runtimeTitle(for: mode)
         operationInProgress = true
         if mode == "setup" {
             log = ""
@@ -198,6 +201,7 @@ final class InstallerModel: ObservableObject {
                 }
                 self?.process = nil
                 self?.operationInProgress = false
+                self?.runtimeStatusTitle = nil
                 if mode == "list-games" {
                     if finished.terminationStatus == 0, let loadedGames = self?.pendingGames {
                         self?.games = loadedGames
@@ -221,6 +225,7 @@ final class InstallerModel: ObservableObject {
             pipe.fileHandleForReading.readabilityHandler = nil
             process = nil
             operationInProgress = false
+            runtimeStatusTitle = nil
             if mode == "list-games" { pendingGames = nil }
             if changesMainState { state = .failed }
             message = error.localizedDescription
@@ -260,7 +265,7 @@ final class InstallerModel: ObservableObject {
             message = String(value.dropFirst(8))
         } else if value.hasPrefix("@@PROGRESS|") {
             let parts = value.split(separator: "|", omittingEmptySubsequences: false)
-            if parts.count >= 2, let value = Double(parts[1]) {
+            if runtimeStatusTitle == nil, parts.count >= 2, let value = Double(parts[1]) {
                 progress = min(max(value, 0), 100)
             }
         } else if value.hasPrefix("@@DOWNLOAD|") {
@@ -375,6 +380,14 @@ final class InstallerModel: ObservableObject {
             "stopping": "Windows Steam 종료 중",
             "ready": "설치 완료"
         ][raw] ?? "설치 중"
+    }
+
+    private func runtimeTitle(for mode: String) -> String? {
+        [
+            "launch": "Windows Steam 시작 중",
+            "stop": "Windows Steam 종료 중",
+            "repair": "Steam 로그인 화면 복구 중"
+        ][mode]
     }
 }
 
@@ -689,7 +702,7 @@ struct StatusCard: View {
                     .fixedSize(horizontal: false, vertical: true)
             }
             Spacer()
-            if model.state == .checking { ProgressView() }
+            if model.state == .checking || model.runtimeStatusTitle != nil { ProgressView() }
         }
         .padding(16)
         .background(.quaternary.opacity(0.4), in: RoundedRectangle(cornerRadius: 16))
