@@ -21,10 +21,12 @@ staging_dir="$work_dir/staging"
 /usr/bin/ditto "$app_path" "$staging_dir/Mac Steam Setup.app"
 /bin/ln -s /Applications "$staging_dir/Applications"
 
+hybrid_base="$work_dir/image"
 /usr/bin/hdiutil makehybrid \
   -udf \
   -udf-version 1.02 \
   -udf-volume-name "$volume_name" \
-  -o "$output_dmg" \
+  -o "$hybrid_base" \
   -ov \
   "$staging_dir"
+/usr/bin/ditto "$hybrid_base.iso" "$output_dmg"
