@@ -3,6 +3,20 @@ import Combine
 import Foundation
 import SwiftUI
 
+enum L10n {
+    static func string(_ key: String) -> String {
+        Bundle.main.localizedString(forKey: key, value: key, table: nil)
+    }
+
+    static func format(_ key: String, _ arguments: CVarArg...) -> String {
+        String(format: string(key), locale: Locale.current, arguments: arguments)
+    }
+
+    static var languageCode: String {
+        Bundle.main.preferredLocalizations.first == "ko" ? "ko" : "en"
+    }
+}
+
 struct SteamGame: Identifiable, Equatable {
     let id: String
     let name: String
@@ -17,8 +31,8 @@ final class InstallerModel: ObservableObject {
     }
 
     @Published var state: State = .checking
-    @Published var phase = "확인 중"
-    @Published var message = "현재 설치 상태를 확인하고 있습니다"
+    @Published var phase = L10n.string("phase.checking")
+    @Published var message = L10n.string("message.checkingInstallation")
     @Published var log = ""
     @Published var showLog = false
     @Published var progress = 0.0
@@ -41,25 +55,25 @@ final class InstallerModel: ObservableObject {
     var isBusy: Bool { state == .checking || state == .installing || operationInProgress }
 
     var primaryTitle: String {
-        if state == .ready && isSteamRunning { return "Windows Steam 실행 중" }
+        if state == .ready && isSteamRunning { return L10n.string("steam.running") }
         switch state {
-        case .ready: return "Windows Steam 열기"
-        case .partial: return "설치 이어서 하기"
-        case .failed: return "다시 시도"
-        default: return "Windows Steam 준비하기"
+        case .ready: return L10n.string("steam.open")
+        case .partial: return L10n.string("setup.resume")
+        case .failed: return L10n.string("common.retry")
+        default: return L10n.string("setup.prepare")
         }
     }
 
     var statusTitle: String {
         if state == .ready, let runtimeStatusTitle { return runtimeStatusTitle }
-        if state == .ready && isSteamRunning { return "Windows Steam 실행 중" }
+        if state == .ready && isSteamRunning { return L10n.string("steam.running") }
         switch state {
-        case .checking: return "설치 상태 확인 중"
-        case .notInstalled: return "설치 준비 완료"
-        case .partial: return "이어서 설치할 수 있어요"
+        case .checking: return L10n.string("status.checking")
+        case .notInstalled: return L10n.string("status.readyToInstall")
+        case .partial: return L10n.string("status.canResume")
         case .installing: return phase
-        case .ready: return "Windows Steam 준비됨"
-        case .failed: return "설치를 마치지 못했어요"
+        case .ready: return L10n.string("status.steamReady")
+        case .failed: return L10n.string("status.setupFailed")
         }
     }
 
@@ -127,7 +141,9 @@ final class InstallerModel: ObservableObject {
                 }
                 guard running != self.isSteamRunning else { return }
                 self.isSteamRunning = running
-                self.message = running ? "Windows Steam이 실행 중입니다" : "Windows Steam이 종료됐습니다"
+                self.message = running
+                    ? L10n.string("message.steamRunning")
+                    : L10n.string("message.steamStopped")
             }
         }
         runtimeProcess = task
@@ -146,7 +162,7 @@ final class InstallerModel: ObservableObject {
     }
 
     func createShortcut(for game: SteamGame) {
-        shortcutMessage = "\(game.name) 바로가기를 만드는 중입니다"
+        shortcutMessage = L10n.format("shortcut.creating", game.name)
         run(mode: "create-shortcut", arguments: [game.id], changesMainState: false)
     }
 
@@ -155,7 +171,7 @@ final class InstallerModel: ObservableObject {
         guard let script = Bundle.main.path(forResource: "setup", ofType: "sh") else {
             if mode == "list-games" { pendingGames = nil }
             if changesMainState { state = .failed }
-            message = "앱 내부 설치 파일을 찾을 수 없습니다"
+            message = L10n.string("error.internalScriptMissing")
             return
         }
 
@@ -210,10 +226,10 @@ final class InstallerModel: ObservableObject {
                 }
                 if finished.terminationStatus != 0 {
                     if changesMainState { self?.state = .failed }
-                    if self?.message.isEmpty == true { self?.message = "자세한 내용은 설치 기록에서 확인할 수 있습니다" }
+                    if self?.message.isEmpty == true { self?.message = L10n.string("error.seeLog") }
                 } else if mode == "setup" {
                     self?.state = .ready
-                    self?.phase = "설치 완료"
+                    self?.phase = L10n.string("phase.complete")
                 }
             }
         }
@@ -240,7 +256,8 @@ final class InstallerModel: ObservableObject {
             "PATH": "/opt/homebrew/bin:/usr/local/bin:/usr/bin:/bin:/usr/sbin:/sbin",
             "TMPDIR": inherited["TMPDIR"] ?? "/tmp",
             "LANG": "en_US.UTF-8",
-            "LC_ALL": "en_US.UTF-8"
+            "LC_ALL": "en_US.UTF-8",
+            "MACSTEAM_UI_LANGUAGE": L10n.languageCode
         ]
     }
 
@@ -296,28 +313,28 @@ final class InstallerModel: ObservableObject {
                 }
             }
         } else if value.hasPrefix("@@SHORTCUT|") {
-            shortcutMessage = "Mac용 게임 바로가기를 만들었습니다"
+            shortcutMessage = L10n.string("shortcut.created")
         } else if value == "@@STATE|ready" {
             state = .ready
             isSteamRunning = false
             progress = 100
             needsUserAction = false
-            message = "Windows Steam이 준비됐습니다"
+            message = L10n.string("message.steamReady")
         } else if value == "@@STATE|running" {
             state = .ready
             isSteamRunning = true
             progress = 100
-            message = "Windows Steam이 이미 실행 중입니다"
+            message = L10n.string("message.steamAlreadyRunning")
         } else if value == "@@STATE|partial" {
             state = .partial
-            message = "중단된 지점부터 안전하게 이어서 설치합니다"
+            message = L10n.string("message.resumeSetup")
         } else if value == "@@STATE|not_installed" {
             state = .notInstalled
             progress = 0
-            message = "버튼을 누르면 필요한 항목만 자동으로 준비합니다"
+            message = L10n.string("message.prepareSetup")
         } else if value == "@@ACTION|steam_installer" {
             needsUserAction = true
-            message = "Steam 설치 창에서 설치 완료까지 진행해 주세요. Steam 실행 여부는 상관없습니다"
+            message = L10n.string("message.steamInstallerAction")
         }
     }
 
@@ -338,6 +355,7 @@ final class InstallerModel: ObservableObject {
         guard game.id.allSatisfy(\.isNumber), !requestedLocalizedNames.contains(game.id) else { return }
         requestedLocalizedNames.insert(game.id)
 
+        guard L10n.languageCode == "ko" else { return }
         let cacheKey = "localizedGameName.ko.\(game.id)"
         if let cached = UserDefaults.standard.string(forKey: cacheKey), !cached.isEmpty {
             if cached.caseInsensitiveCompare(game.name) != .orderedSame {
@@ -368,25 +386,25 @@ final class InstallerModel: ObservableObject {
 
     private func friendlyPhase(_ raw: String) -> String {
         [
-            "checking": "Mac 확인 중",
-            "rosetta": "Apple 실행 환경 준비 중",
-            "downloading": "실행 엔진 다운로드 중",
-            "wrapper": "Steam 앱 만드는 중",
-            "windows": "Windows 환경 준비 중",
-            "steam": "Windows Steam 설치 중",
-            "configuring": "게임 실행 설정 적용 중",
-            "repairing": "Steam 로그인 화면 복구 중",
-            "launching": "Windows Steam 시작 중",
-            "stopping": "Windows Steam 종료 중",
-            "ready": "설치 완료"
-        ][raw] ?? "설치 중"
+            "checking": L10n.string("phase.macCheck"),
+            "rosetta": L10n.string("phase.rosetta"),
+            "downloading": L10n.string("phase.downloading"),
+            "wrapper": L10n.string("phase.wrapper"),
+            "windows": L10n.string("phase.windows"),
+            "steam": L10n.string("phase.steam"),
+            "configuring": L10n.string("phase.configuring"),
+            "repairing": L10n.string("phase.repairing"),
+            "launching": L10n.string("phase.launching"),
+            "stopping": L10n.string("phase.stopping"),
+            "ready": L10n.string("phase.complete")
+        ][raw] ?? L10n.string("phase.installing")
     }
 
     private func runtimeTitle(for mode: String) -> String? {
         [
-            "launch": "Windows Steam 시작 중",
-            "stop": "Windows Steam 종료 중",
-            "repair": "Steam 로그인 화면 복구 중"
+            "launch": L10n.string("phase.launching"),
+            "stop": L10n.string("phase.stopping"),
+            "repair": L10n.string("phase.repairing")
         ][mode]
     }
 }
@@ -396,7 +414,9 @@ enum AppSection: String, CaseIterable, Identifiable {
     case management
 
     var id: String { rawValue }
-    var title: String { self == .games ? "게임" : "설치 및 관리" }
+    var title: String {
+        self == .games ? L10n.string("section.games") : L10n.string("section.management")
+    }
     var icon: String { self == .games ? "gamecontroller.fill" : "gearshape.fill" }
 }
 
@@ -412,7 +432,7 @@ struct ContentView: View {
                     .tag(section)
             }
             .navigationTitle("Windows Steam")
-            .navigationSplitViewColumnWidth(min: 170, ideal: 190, max: 220)
+            .navigationSplitViewColumnWidth(min: 190, ideal: 220, max: 250)
         } detail: {
             switch selection ?? .games {
             case .games:
@@ -425,7 +445,7 @@ struct ContentView: View {
                 }
             }
         }
-        .frame(width: 860, height: 590)
+        .frame(width: 900, height: 590)
         .onChange(of: selection) { _, section in
             if section == .games, model.state == .ready { model.loadGames() }
         }
@@ -436,11 +456,11 @@ struct ContentView: View {
                 selection = .management
             }
         }
-        .alert("Windows Steam을 완전히 종료할까요?", isPresented: $showStopConfirmation) {
-            Button("취소", role: .cancel) {}
-            Button("완전 종료", role: .destructive, action: model.stopSteam)
+        .alert(L10n.string("alert.stop.title"), isPresented: $showStopConfirmation) {
+            Button(L10n.string("common.cancel"), role: .cancel) {}
+            Button(L10n.string("alert.stop.confirm"), role: .destructive, action: model.stopSteam)
         } message: {
-            Text("실행 중인 Windows 게임과 Steam 다운로드도 함께 종료됩니다.")
+            Text(L10n.string("alert.stop.message"))
         }
     }
 }
@@ -453,9 +473,9 @@ struct GameLibraryView: View {
         VStack(alignment: .leading, spacing: 0) {
             HStack(alignment: .top) {
                 VStack(alignment: .leading, spacing: 4) {
-                    Text("내 게임")
+                    Text(L10n.string("games.title"))
                         .font(.largeTitle.bold())
-                    Text("Windows Steam에 설치된 게임을 바로 실행할 수 있게 준비합니다.")
+                    Text(L10n.string("games.subtitle"))
                         .foregroundStyle(.secondary)
                 }
                 Spacer()
@@ -464,7 +484,9 @@ struct GameLibraryView: View {
                         model.openSteam()
                     } label: {
                         Label(
-                            model.isSteamRunning ? "Steam 창 보기" : "Steam 시작",
+                            model.isSteamRunning
+                                ? L10n.string("games.showSteam")
+                                : L10n.string("games.startSteam"),
                             systemImage: model.isSteamRunning ? "macwindow" : "play.fill"
                         )
                     }
@@ -473,7 +495,7 @@ struct GameLibraryView: View {
                     Button {
                         model.loadGames()
                     } label: {
-                        Label("새로고침", systemImage: "arrow.clockwise")
+                        Label(L10n.string("common.refresh"), systemImage: "arrow.clockwise")
                     }
                     .disabled(model.operationInProgress)
                 }
@@ -482,31 +504,31 @@ struct GameLibraryView: View {
 
             if model.state == .checking {
                 Spacer()
-                ProgressView("게임을 불러오는 중입니다")
+                ProgressView(L10n.string("games.loading"))
                     .frame(maxWidth: .infinity)
                 Spacer()
             } else if model.state != .ready {
                 Spacer()
                 ContentUnavailableView {
-                    Label("Windows Steam 준비가 필요합니다", systemImage: "externaldrive.badge.plus")
+                    Label(L10n.string("games.setupRequired"), systemImage: "externaldrive.badge.plus")
                 } description: {
-                    Text("설치 및 관리에서 처음 한 번만 준비해 주세요.")
+                    Text(L10n.string("games.setupRequired.detail"))
                 } actions: {
-                    Button("설치 및 관리로 이동", action: openManagement)
+                    Button(L10n.string("games.openManagement"), action: openManagement)
                         .buttonStyle(.borderedProminent)
                 }
                 Spacer()
             } else if model.operationInProgress && model.games.isEmpty {
                 Spacer()
-                ProgressView("설치된 게임을 찾는 중입니다")
+                ProgressView(L10n.string("games.finding"))
                     .frame(maxWidth: .infinity)
                 Spacer()
             } else if model.games.isEmpty {
                 Spacer()
                 ContentUnavailableView(
-                    "설치된 게임이 없습니다",
+                    L10n.string("games.empty"),
                     systemImage: "gamecontroller",
-                    description: Text("Windows Steam에서 게임을 설치한 다음 새로고침해 주세요.")
+                    description: Text(L10n.string("games.empty.detail"))
                 )
                 Spacer()
             } else {
@@ -521,7 +543,7 @@ struct GameLibraryView: View {
                                 .foregroundStyle(.secondary)
                         }
                         Spacer()
-                        Button("바로가기 만들기") {
+                        Button(L10n.string("games.createShortcut")) {
                             model.createShortcut(for: game)
                         }
                         .disabled(model.operationInProgress)
@@ -575,9 +597,9 @@ struct ManagementView: View {
         ScrollView {
             VStack(alignment: .leading, spacing: 22) {
                 VStack(alignment: .leading, spacing: 4) {
-                    Text("설치 및 관리")
+                    Text(L10n.string("management.title"))
                         .font(.largeTitle.bold())
-                    Text("Windows Steam 실행 환경과 문제 해결 도구를 관리합니다.")
+                    Text(L10n.string("management.subtitle"))
                         .foregroundStyle(.secondary)
                 }
 
@@ -586,7 +608,11 @@ struct ManagementView: View {
                 if model.state == .installing {
                     VStack(alignment: .leading, spacing: 9) {
                         HStack {
-                            Text(model.needsUserAction ? "사용자 작업 필요" : "전체 진행률")
+                            Text(
+                                model.needsUserAction
+                                    ? L10n.string("management.userAction")
+                                    : L10n.string("management.overallProgress")
+                            )
                                 .font(.callout.weight(.semibold))
                                 .foregroundStyle(model.needsUserAction ? .orange : .secondary)
                             Spacer()
@@ -617,15 +643,17 @@ struct ManagementView: View {
                 }
 
                 if model.state == .ready {
-                    GroupBox("관리 도구") {
+                    GroupBox(L10n.string("management.tools")) {
                         VStack(spacing: 0) {
                             ManagementRow(
                                 title: "Windows Steam",
                                 detail: model.isSteamRunning
-                                    ? "Steam과 실행 중인 Windows 게임을 모두 종료합니다."
-                                    : "설치된 Windows Steam을 시작합니다.",
+                                    ? L10n.string("management.steam.stopDetail")
+                                    : L10n.string("management.steam.openDetail"),
                                 icon: model.isSteamRunning ? "power" : "play.fill",
-                                actionTitle: model.isSteamRunning ? "종료" : "열기",
+                                actionTitle: model.isSteamRunning
+                                    ? L10n.string("common.stop")
+                                    : L10n.string("common.open"),
                                 isDisabled: model.isBusy,
                                 action: {
                                     if model.isSteamRunning {
@@ -637,10 +665,10 @@ struct ManagementView: View {
                             )
                             Divider().padding(.leading, 42)
                             ManagementRow(
-                                title: "로그인 화면 복구",
-                                detail: "로그인 창이 비어 있거나 깨졌을 때 임시 데이터를 초기화합니다.",
+                                title: L10n.string("management.repair.title"),
+                                detail: L10n.string("management.repair.detail"),
                                 icon: "wrench.and.screwdriver",
-                                actionTitle: "복구",
+                                actionTitle: L10n.string("common.repair"),
                                 action: model.repairSteamUI
                             )
                         }
@@ -649,17 +677,21 @@ struct ManagementView: View {
                 }
 
                 HStack {
-                    Button("설치 폴더 열기", action: model.openInstallFolder)
+                    Button(L10n.string("management.openFolder"), action: model.openInstallFolder)
                         .disabled(model.state == .notInstalled || model.state == .checking)
                     Spacer()
-                    Button(model.showLog ? "설치 기록 숨기기" : "설치 기록 보기") {
+                    Button(
+                        model.showLog
+                            ? L10n.string("management.hideLog")
+                            : L10n.string("management.showLog")
+                    ) {
                         model.showLog.toggle()
                     }
                 }
 
                 if model.showLog {
                     ScrollView {
-                        Text(model.log.isEmpty ? "아직 기록이 없습니다." : model.log)
+                        Text(model.log.isEmpty ? L10n.string("management.noLog") : model.log)
                             .font(.system(.caption, design: .monospaced))
                             .textSelection(.enabled)
                             .frame(maxWidth: .infinity, alignment: .leading)
@@ -670,8 +702,8 @@ struct ManagementView: View {
                 }
 
                 VStack(alignment: .leading, spacing: 3) {
-                    Text("일부 게임과 안티치트는 호환되지 않을 수 있습니다.")
-                    Text("Valve, Apple 또는 Sikarugir와 제휴·승인·후원 관계가 없는 비공식 프로젝트입니다.")
+                    Text(L10n.string("disclaimer.compatibility"))
+                    Text(L10n.string("disclaimer.unaffiliated"))
                 }
                 .font(.caption)
                 .foregroundStyle(.tertiary)

@@ -9,6 +9,8 @@ trap 'rm -rf "$TEST_HOME"' EXIT
 export HOME="$TEST_HOME"
 export USER="tester"
 export MACSTEAM_TEST_NO_OPEN=1
+# shellcheck source=../Resources/localization.sh
+source "$ROOT/Resources/localization.sh"
 
 assert_contains() {
   local output="$1"
@@ -175,6 +177,8 @@ assert_contains "$output" '@@SHORTCUT|'
   || { echo 'FAIL: shortcut owner marker missing' >&2; exit 1; }
 launch_command="$shortcut/Contents/Resources/LaunchGame.bat"
 [[ -f "$launch_command" ]] || { echo 'FAIL: Windows game command missing' >&2; exit 1; }
+[[ -f "$shortcut/Contents/Resources/localization.sh" ]] \
+  || { echo 'FAIL: game shortcut localization missing' >&2; exit 1; }
 [[ -f "$shortcut/Contents/Resources/GameIcon.icns" ]] || { echo 'FAIL: game shortcut icon missing' >&2; exit 1; }
 [[ "$(/usr/bin/plutil -extract CFBundleIconFile raw "$shortcut/Contents/Info.plist")" == "GameIcon" ]] \
   || { echo 'FAIL: game shortcut icon plist entry' >&2; exit 1; }
@@ -214,7 +218,7 @@ background_steam_pid=$!
 background_ui_pid=$!
 /bin/sleep 0.1
 output="$(bash "$SCRIPT" launch)"
-assert_contains "$output" 'Windows Steam 창을 앞으로 가져왔습니다'
+assert_contains "$output" "$(ui_text steam_window_foregrounded)"
 [[ "$output" != *'@@PHASE|launching'* ]] \
   || { echo 'FAIL: background Steam was restarted instead of foregrounded' >&2; exit 1; }
 /bin/kill "$background_steam_pid" "$background_ui_pid" 2>/dev/null || true

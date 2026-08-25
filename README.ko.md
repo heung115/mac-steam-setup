@@ -8,19 +8,19 @@
 
 **Apple Silicon Mac에서 Windows Steam을 설치하고 호환되는 Windows 전용 Steam 게임을 실행하도록 돕는 무료 오픈소스 macOS 앱입니다.** Windows 가상 머신이나 CrossOver 구독 없이 Sikarugir/Wine과 D3DMetal 설정을 자동화합니다.
 
-[DMG 베타 다운로드](https://github.com/heung115/mac-steam-setup/releases/download/v0.12-beta.1/Mac-Steam-Setup-v0.12-beta.1.dmg) · [의견 나누기](https://github.com/heung115/mac-steam-setup/discussions) · [버그·게임 호환성 제보](https://github.com/heung115/mac-steam-setup/issues/new/choose)
+[DMG 베타 다운로드](https://github.com/heung115/mac-steam-setup/releases/download/v0.13-beta.1/Mac-Steam-Setup-v0.13-beta.1.dmg) · [의견 나누기](https://github.com/heung115/mac-steam-setup/discussions) · [버그·게임 호환성 제보](https://github.com/heung115/mac-steam-setup/issues/new/choose)
 
 [![CI](https://github.com/heung115/mac-steam-setup/actions/workflows/ci.yml/badge.svg)](https://github.com/heung115/mac-steam-setup/actions/workflows/ci.yml) ![macOS 14+](https://img.shields.io/badge/macOS-14%2B-black) ![Apple Silicon](https://img.shields.io/badge/Apple%20Silicon-required-black) [![MIT License](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
 
 <p align="center">
   <img src="Assets/AppScreenshot.png" width="900" alt="macOS에서 실행 중인 Mac Steam Setup 게임 바로가기 화면">
   <br>
-  <sub>현재 베타의 게임 바로가기 화면입니다. 표시된 게임은 설치된 라이브러리 예시이며 호환성 보장을 의미하지 않습니다.</sub>
+  <sub>현재 베타의 영문 게임 바로가기 화면입니다. 표시된 게임은 설치된 라이브러리 예시이며 호환성 보장을 의미하지 않습니다.</sub>
 </p>
 
 ## 빠른 시작
 
-1. [Mac Steam Setup v0.12-beta.1 DMG](https://github.com/heung115/mac-steam-setup/releases/download/v0.12-beta.1/Mac-Steam-Setup-v0.12-beta.1.dmg)를 받습니다. 다른 버전과 대체 ZIP은 [GitHub Releases](https://github.com/heung115/mac-steam-setup/releases)에서 확인할 수 있습니다.
+1. [Mac Steam Setup v0.13-beta.1 DMG](https://github.com/heung115/mac-steam-setup/releases/download/v0.13-beta.1/Mac-Steam-Setup-v0.13-beta.1.dmg)를 받습니다. 다른 버전과 대체 ZIP은 [GitHub Releases](https://github.com/heung115/mac-steam-setup/releases)에서 확인할 수 있습니다.
 2. DMG를 열고 `Mac Steam Setup.app`을 함께 보이는 `Applications` 폴더로 드래그합니다.
 3. `Mac Steam Setup.app`을 한 번 실행해 봅니다.
 4. macOS가 차단하면 `시스템 설정 → 개인정보 보호 및 보안 → 그래도 열기`를 선택합니다. 한 번만 승인하면 됩니다.
@@ -40,6 +40,7 @@
 ## 주요 기능
 
 - 단계별 설치 진행률과 다운로드 용량 표시
+- macOS 언어에 따라 한국어와 영어 자동 전환
 - 중복 설치와 중복 실행 요청 차단
 - 공식 Sikarugir 엔진, Wine 래퍼, D3DMetal, Steam 경로 설정
 - 설치 후 남는 프로세스 정리와 백그라운드 Sikarugir Dock 아이콘 숨김

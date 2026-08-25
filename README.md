@@ -8,19 +8,19 @@
 
 **A free, open-source macOS app that helps Apple Silicon Mac users install Windows Steam and launch compatible Windows-only Steam games.** It automates the Sikarugir/Wine and D3DMetal setup without requiring a Windows virtual machine or a CrossOver subscription.
 
-[Download DMG beta](https://github.com/heung115/mac-steam-setup/releases/download/v0.12-beta.1/Mac-Steam-Setup-v0.12-beta.1.dmg) · [Share feedback](https://github.com/heung115/mac-steam-setup/discussions) · [Report a bug or game](https://github.com/heung115/mac-steam-setup/issues/new/choose)
+[Download DMG beta](https://github.com/heung115/mac-steam-setup/releases/download/v0.13-beta.1/Mac-Steam-Setup-v0.13-beta.1.dmg) · [Share feedback](https://github.com/heung115/mac-steam-setup/discussions) · [Report a bug or game](https://github.com/heung115/mac-steam-setup/issues/new/choose)
 
 [![CI](https://github.com/heung115/mac-steam-setup/actions/workflows/ci.yml/badge.svg)](https://github.com/heung115/mac-steam-setup/actions/workflows/ci.yml) ![macOS 14+](https://img.shields.io/badge/macOS-14%2B-black) ![Apple Silicon](https://img.shields.io/badge/Apple%20Silicon-required-black) [![MIT License](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
 
 <p align="center">
   <img src="Assets/AppScreenshot.png" width="900" alt="Mac Steam Setup game shortcuts screen on macOS">
   <br>
-  <sub>Current beta game-shortcuts screen on a Mac using the Korean locale. The listed game is an installed-library example, not a compatibility guarantee.</sub>
+  <sub>Current beta game-shortcuts screen in English. The listed game is an installed-library example, not a compatibility guarantee.</sub>
 </p>
 
 ## Quick start
 
-1. Download the [Mac Steam Setup v0.12-beta.1 DMG](https://github.com/heung115/mac-steam-setup/releases/download/v0.12-beta.1/Mac-Steam-Setup-v0.12-beta.1.dmg). Other versions and the fallback ZIP are available on [GitHub Releases](https://github.com/heung115/mac-steam-setup/releases).
+1. Download the [Mac Steam Setup v0.13-beta.1 DMG](https://github.com/heung115/mac-steam-setup/releases/download/v0.13-beta.1/Mac-Steam-Setup-v0.13-beta.1.dmg). Other versions and the fallback ZIP are available on [GitHub Releases](https://github.com/heung115/mac-steam-setup/releases).
 2. Open the DMG and drag `Mac Steam Setup.app` onto the `Applications` folder shown beside it.
 3. Try to open `Mac Steam Setup.app` once.
 4. If macOS blocks it, go to **System Settings → Privacy & Security → Open Anyway**. This approval is only required once.
@@ -40,6 +40,7 @@ The current beta uses an ad-hoc signature and is not notarized by Apple. Downloa
 ## What it does
 
 - Shows step-by-step setup progress and downloaded size
+- Follows the macOS language automatically in English and Korean
 - Prevents duplicate installation and launch requests
 - Configures the official Sikarugir engine, Wine wrapper, D3DMetal, and Steam path
 - Cleans up setup processes and hides the background Sikarugir Dock icon

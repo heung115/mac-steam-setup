@@ -6,10 +6,17 @@ APP_ID="$(/usr/bin/plutil -extract SteamAppID raw "$APP_DIR/Contents/Info.plist"
 WRAPPER="$HOME/Applications/Sikarugir/Steam.app"
 WRAPPER_LAUNCHER="$WRAPPER/Contents/MacOS/Sikarugir"
 GAME_COMMAND="$APP_DIR/Contents/Resources/LaunchGame.bat"
+# shellcheck source=localization.sh
+source "$APP_DIR/Contents/Resources/localization.sh"
+
+show_alert() {
+  MACSTEAM_ALERT_TEXT="$(ui_text "$1")" /usr/bin/osascript \
+    -e 'display alert (system attribute "MACSTEAM_ALERT_TEXT") as critical'
+}
 
 [[ "$APP_ID" =~ ^[0-9]+$ ]] || exit 2
 [[ -x "$WRAPPER_LAUNCHER" && -f "$GAME_COMMAND" ]] || {
-  /usr/bin/osascript -e 'display alert "Windows Steam이 설치되어 있지 않습니다" as critical'
+  show_alert shortcut_steam_missing
   exit 3
 }
 
@@ -46,11 +53,11 @@ if ! steam_client_is_running; then
 fi
 
 steam_client_is_running || {
-  /usr/bin/osascript -e 'display alert "Windows Steam을 시작하지 못했습니다" as critical'
+  show_alert shortcut_steam_start_failed
   exit 4
 }
 
 if ! "$WRAPPER_LAUNCHER" WSS-installer "$GAME_COMMAND" >/dev/null 2>&1; then
-  /usr/bin/osascript -e 'display alert "Windows Steam에서 게임을 시작하지 못했습니다" as critical'
+  show_alert shortcut_game_start_failed
   exit 5
 fi

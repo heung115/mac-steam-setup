@@ -134,3 +134,4 @@ install_wrapper_atomically \
 
 printf 'PASS: setup core regression tests\n'
 bash "$ROOT/Tests/protocol_integration.sh"
+bash "$ROOT/Tests/localization.sh"

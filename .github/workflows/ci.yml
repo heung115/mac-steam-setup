@@ -26,6 +26,9 @@ jobs:
         run: |
           codesign --verify --deep --strict "build/Mac Steam Setup.app"
           test "$(lipo -archs 'build/Mac Steam Setup.app/Contents/MacOS/MacSteamSetup')" = "arm64"
+          test -f "build/Mac Steam Setup.app/Contents/Resources/en.lproj/Localizable.strings"
+          test -f "build/Mac Steam Setup.app/Contents/Resources/ko.lproj/Localizable.strings"
+          test -f "build/Mac Steam Setup.app/Contents/Resources/localization.sh"
 
       - name: Verify DMG packaging
         timeout-minutes: 2
