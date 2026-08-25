@@ -1,4 +1,4 @@
-# Mac Steam Setup
+# Mac Steam Setup: Run Windows Steam Games on Apple Silicon Mac
 
 **English** | [한국어](README.ko.md)
 
@@ -6,7 +6,7 @@
   <img src="Assets/AppIcon.png" width="128" alt="Mac Steam Setup icon">
 </p>
 
-**Install and run Windows Steam and Windows-only games more easily on Apple Silicon Macs.** Mac Steam Setup turns the Sikarugir/Wine setup into a simple Mac app.
+**A free, open-source macOS app that helps Apple Silicon Mac users install Windows Steam and launch compatible Windows-only Steam games.** Mac Steam Setup automates the Sikarugir/Wine and D3DMetal setup without requiring a Windows virtual machine or a CrossOver subscription.
 
 [Download DMG beta](https://github.com/heung115/mac-steam-setup/releases/download/v0.12-beta.1/Mac-Steam-Setup-v0.12-beta.1.dmg) · [Share feedback](https://github.com/heung115/mac-steam-setup/discussions) · [Report a bug or game](https://github.com/heung115/mac-steam-setup/issues/new/choose)
 
@@ -15,6 +15,17 @@
 Mac Steam Setup is a non-commercial open-source prototype. It does not bundle its own Wine build or Steam. Instead, it downloads pinned official Sikarugir engine and wrapper releases and Valve's Steam installer when the user starts setup.
 
 This is an independent, unofficial community project. It is not affiliated with, endorsed by, sponsored by, or approved by Valve Corporation, Apple Inc., or the Sikarugir project. Steam and the Steam logo are trademarks and/or registered trademarks of Valve Corporation. This project does not use the Steam logo or Valve's official design assets.
+
+## At a glance
+
+| Question | Answer |
+| --- | --- |
+| What does it do? | Prepares Windows Steam on an Apple Silicon Mac and creates lightweight macOS shortcuts for installed Windows games. |
+| What does it use? | A SwiftUI setup app, Sikarugir/Wine, and D3DMetal. |
+| Which Macs are supported? | Apple Silicon Macs running macOS 14 or later. Intel Macs are not supported. |
+| Is it a virtual machine? | No. It uses a Wine compatibility wrapper and does not install Windows. |
+| Is it free? | Yes. The project is open source under the MIT License and does not require a CrossOver subscription. |
+| Will every Steam game work? | No. Compatibility varies, and games that require anti-cheat or additional launchers may fail. |
 
 ## Features
 
@@ -36,8 +47,8 @@ This is an independent, unofficial community project. It is not affiliated with,
 
 1. Download the DMG from the link above. Other versions and the fallback ZIP are available on [GitHub Releases](https://github.com/heung115/mac-steam-setup/releases).
 2. Open the DMG and drag `Mac Steam Setup.app` onto the `Applications` folder shown beside it.
-3. On first launch, right-click or Control-click the app and choose **Open**.
-4. If macOS still blocks it, try opening it once, then go to **System Settings → Privacy & Security → Open Anyway**. After this one-time approval, you can open it normally by double-clicking.
+3. Try to open `Mac Steam Setup.app` once.
+4. If macOS blocks it, go to **System Settings → Privacy & Security → Open Anyway**. After this one-time approval, you can open it normally by double-clicking.
 
 The current beta is not signed or notarized by Apple. Make sure you downloaded it directly from this GitHub repository. A `.sha256` checksum is provided so you can check that the download was not corrupted. A ZIP is also available in the same Release as a fallback if the DMG does not open.
 
@@ -71,6 +82,28 @@ The following checks were completed on a Mac running macOS 26.6.2 with an M4 Pro
 - Restart after completely terminating all Windows Steam processes
 
 Game compatibility and anti-cheat support vary by title.
+
+## Frequently asked questions
+
+### Can I run Windows-only Steam games on an M-series Mac?
+
+Mac Steam Setup prepares a Windows Steam environment for Apple Silicon Macs. Compatible games can then be installed through Windows Steam and launched from the app or from generated macOS shortcuts. It does not guarantee that every Windows game will run.
+
+### Is this an alternative to CrossOver, Whisky, or Porting Kit?
+
+It is a free setup helper for one specific Sikarugir/Wine workflow. It is not a general-purpose replacement for those projects and does not modify an existing Porting Kit installation.
+
+### Does it include Windows, Steam, Wine, or games?
+
+No. Releases contain only the Mac Steam Setup app. Required third-party components are downloaded from their official sources on the user's Mac, and users install games they own through Steam.
+
+### Do Steam games run without the Steam client?
+
+Generated game shortcuts can open a game directly, but games that use Steam DRM still require the Windows Steam process to run in the background.
+
+### Why does macOS warn that Apple cannot check the app?
+
+The current beta uses an ad-hoc signature and is not notarized by Apple. Download it only from this repository and use **System Settings → Privacy & Security → Open Anyway** for the first launch. Removing this warning for ordinary downloads would require Developer ID signing and Apple notarization.
 
 ## Feedback and game compatibility reports
 

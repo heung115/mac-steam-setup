@@ -1,4 +1,4 @@
-# Mac Steam Setup
+# Mac Steam Setup: Apple Silicon Mac에서 Windows Steam 게임 실행하기
 
 **한국어** | [English](README.md)
 
@@ -6,7 +6,7 @@
   <img src="Assets/AppIcon.png" width="128" alt="Mac Steam Setup 아이콘">
 </p>
 
-**Apple Silicon Mac에서 Windows Steam과 Windows 전용 게임을 더 쉽게 설치하고 실행하는 도구입니다.** Sikarugir/Wine 방식을 간단한 Mac 앱으로 준비합니다.
+**Apple Silicon Mac에서 Windows Steam을 설치하고 호환되는 Windows 전용 Steam 게임을 실행하도록 돕는 무료 오픈소스 macOS 앱입니다.** Windows 가상 머신이나 CrossOver 구독 없이 Sikarugir/Wine과 D3DMetal 설정을 자동화합니다.
 
 [DMG 베타 다운로드](https://github.com/heung115/mac-steam-setup/releases/download/v0.12-beta.1/Mac-Steam-Setup-v0.12-beta.1.dmg) · [의견 나누기](https://github.com/heung115/mac-steam-setup/discussions) · [버그·게임 호환성 제보](https://github.com/heung115/mac-steam-setup/issues/new/choose)
 
@@ -15,6 +15,17 @@
 이 프로젝트는 비상업적 오픈소스 프로토타입입니다. 자체 Wine이나 Steam을 포함하지 않고, 고정된 공식 Sikarugir 엔진/템플릿과 Valve의 Steam 설치 파일을 실행 시점에 내려받습니다.
 
 이 프로젝트는 독립적인 비공식 커뮤니티 프로젝트이며 Valve Corporation, Apple Inc. 또는 Sikarugir 프로젝트와 제휴하거나 이들로부터 승인·후원받지 않았습니다. Steam 및 Steam 로고는 Valve Corporation의 상표 또는 등록상표입니다. 이 프로젝트는 Steam 로고나 Valve의 공식 디자인 자산을 사용하지 않습니다.
+
+## 한눈에 보기
+
+| 질문 | 답변 |
+| --- | --- |
+| 무엇을 하나요? | Apple Silicon Mac에 Windows Steam 환경을 준비하고, 설치된 Windows 게임의 가벼운 Mac 바로가기를 만듭니다. |
+| 무엇을 사용하나요? | SwiftUI 설치 앱, Sikarugir/Wine, D3DMetal을 사용합니다. |
+| 어떤 Mac을 지원하나요? | macOS 14 이상을 실행하는 Apple Silicon Mac을 지원합니다. Intel Mac은 지원하지 않습니다. |
+| 가상 머신인가요? | 아닙니다. Wine 호환성 래퍼를 사용하며 Windows를 설치하지 않습니다. |
+| 무료인가요? | 네. MIT 라이선스 오픈소스이며 CrossOver 구독이 필요하지 않습니다. |
+| 모든 Steam 게임이 되나요? | 아닙니다. 게임마다 다르며 안티치트나 추가 런처가 필요한 게임은 실행되지 않을 수 있습니다. |
 
 ## 현재 기능
 
@@ -36,8 +47,8 @@
 
 1. 위 링크에서 DMG를 받습니다. 다른 버전과 대체 ZIP은 [GitHub Releases](https://github.com/heung115/mac-steam-setup/releases)에서 확인할 수 있습니다.
 2. DMG를 열고 `Mac Steam Setup.app`을 함께 보이는 `Applications` 폴더로 드래그합니다.
-3. 첫 실행은 앱을 우클릭(또는 Control-클릭)하고 `열기`를 선택합니다.
-4. macOS가 계속 차단하면 앱을 한 번 실행해 본 뒤 `시스템 설정 → 개인정보 보호 및 보안 → 그래도 열기`를 선택합니다. 한 번 승인하면 이후에는 평소처럼 더블클릭할 수 있습니다.
+3. `Mac Steam Setup.app`을 한 번 실행해 봅니다.
+4. macOS가 차단하면 `시스템 설정 → 개인정보 보호 및 보안 → 그래도 열기`를 선택합니다. 한 번 승인하면 이후에는 평소처럼 더블클릭할 수 있습니다.
 
 현재 베타는 Apple의 서명·공증을 받지 않았습니다. GitHub 저장소에서 직접 받은 파일인지 확인하고, 함께 제공되는 `.sha256` 체크섬으로 다운로드가 손상되지 않았는지 확인할 수 있습니다. DMG가 열리지 않는 경우에는 같은 Release의 ZIP을 대신 사용할 수 있습니다.
 
@@ -71,6 +82,28 @@ bash Tests/run.sh
 - Windows Steam 전체 프로세스 종료 후 재실행
 
 게임별 실행 성공 여부와 안티치트 호환성은 게임마다 다릅니다.
+
+## 자주 묻는 질문
+
+### M 시리즈 Mac에서 Windows 전용 Steam 게임을 실행할 수 있나요?
+
+Mac Steam Setup은 Apple Silicon Mac에 Windows Steam 환경을 준비합니다. 호환되는 게임은 Windows Steam에서 설치한 뒤 앱이나 생성된 Mac 바로가기로 실행할 수 있습니다. 모든 Windows 게임의 실행을 보장하지는 않습니다.
+
+### CrossOver, Whisky 또는 Porting Kit의 대체품인가요?
+
+한 가지 Sikarugir/Wine 방식을 쉽게 준비하는 무료 설치 도우미입니다. 위 프로젝트들을 전반적으로 대체하는 도구는 아니며 기존 Porting Kit 설치를 변경하지 않습니다.
+
+### Windows, Steam, Wine 또는 게임이 포함되나요?
+
+아닙니다. 릴리스에는 Mac Steam Setup 앱만 들어갑니다. 필요한 제3자 구성요소는 사용자의 Mac에서 공식 배포처를 통해 내려받고, 사용자가 소유한 게임은 Steam을 통해 직접 설치합니다.
+
+### Steam 클라이언트 없이 게임만 실행할 수 있나요?
+
+생성한 게임 바로가기로 게임을 직접 열 수 있지만, Steam DRM을 사용하는 게임은 Windows Steam 프로세스가 백그라운드에서 실행되어야 합니다.
+
+### Apple이 앱을 확인할 수 없다는 경고가 왜 뜨나요?
+
+현재 베타는 임시 서명을 사용하며 Apple 공증을 받지 않았습니다. 반드시 이 저장소에서 내려받고, 첫 실행 때 `시스템 설정 → 개인정보 보호 및 보안 → 그래도 열기`를 사용하세요. 일반 다운로드에서 이 경고를 없애려면 Developer ID 서명과 Apple 공증이 필요합니다.
 
 ## 의견과 게임 호환성 제보
 
