@@ -13,9 +13,9 @@
 [![CI](https://github.com/heung115/mac-steam-setup/actions/workflows/ci.yml/badge.svg)](https://github.com/heung115/mac-steam-setup/actions/workflows/ci.yml) ![macOS 14+](https://img.shields.io/badge/macOS-14%2B-black) ![Apple Silicon](https://img.shields.io/badge/Apple%20Silicon-required-black) [![MIT License](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
 
 <p align="center">
-  <img src="Assets/AppScreenshot.png" width="900" alt="Mac Steam Setup game shortcuts screen on macOS">
+  <img src="Assets/ManagementScreenshot.png" width="900" alt="Mac Steam Setup management screen on macOS">
   <br>
-  <sub>Current beta game-shortcuts screen in English. The listed game is an installed-library example, not a compatibility guarantee.</sub>
+  <sub>Current beta Setup & Management screen in English.</sub>
 </p>
 
 ## Quick start

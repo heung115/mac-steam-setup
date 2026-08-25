@@ -13,9 +13,9 @@
 [![CI](https://github.com/heung115/mac-steam-setup/actions/workflows/ci.yml/badge.svg)](https://github.com/heung115/mac-steam-setup/actions/workflows/ci.yml) ![macOS 14+](https://img.shields.io/badge/macOS-14%2B-black) ![Apple Silicon](https://img.shields.io/badge/Apple%20Silicon-required-black) [![MIT License](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
 
 <p align="center">
-  <img src="Assets/AppScreenshot.png" width="900" alt="macOS에서 실행 중인 Mac Steam Setup 게임 바로가기 화면">
+  <img src="Assets/ManagementScreenshot.png" width="900" alt="macOS에서 실행 중인 Mac Steam Setup 설치 및 관리 화면">
   <br>
-  <sub>현재 베타의 영문 게임 바로가기 화면입니다. 표시된 게임은 설치된 라이브러리 예시이며 호환성 보장을 의미하지 않습니다.</sub>
+  <sub>현재 베타의 영문 설치 및 관리 화면입니다.</sub>
 </p>
 
 ## 빠른 시작
